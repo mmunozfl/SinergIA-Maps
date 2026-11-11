@@ -2,7 +2,7 @@
   "programa": {
     "nombreApp": "SinergIA-Maps",
     "titulo": "Sinergia Organizacional UCM",
-    "subtitulo": "Entrevista y Mapa Vivo Interáreas · Programa Nuestro Sello (Sintoniza)",
+    "subtitulo": "Entrevista y Mapa Vivo Interáreas",
     "institucion": "Universidad Católica del Maule",
     "autor": {
       "nombre": "Por Miguel Muñoz Flores",
@@ -445,7 +445,35 @@
     {
       "id": "evidencia",
       "label": "Evidencia BUK"
+    },
+    {
+      "id": "quienes-somos",
+      "label": "¿Quiénes somos?"
     }
   ],
+  "quienesSomos": {
+    "titulo": "¿Quiénes somos y por qué existe SinergIA-Maps?",
+    "intro": "SinergIA-Maps nace dentro del Programa de Entrenamiento Sinergia Organizacional — Nuestro Sello (Sintoniza) de la Universidad Católica del Maule. Su propósito es hacer visible la red real de colaboración y apoyo mutuo entre profesores, investigadores y funcionarios de distintas facultades y direcciones, más allá del organigrama formal.",
+    "pilares": [
+      {
+        "titulo": "1. Por qué te invitamos a responder",
+        "descripcion": "Muchas veces resolvemos tareas docentes, administrativas o de difusión sin saber qué colega de otra facultad o unidad domina exactamente ese proceso o busca articularse en un proyecto afín. Esta entrevista breve (~2 minutos) ayuda a encontrarnos rápido y sin burocracia."
+      },
+      {
+        "titulo": "2. Uso transparente de tus respuestas",
+        "descripcion": "No es una evaluación de desempeño ni un sistema de control. Tampoco envía correos automáticos ni agenda reuniones por ti: solo visibiliza los temas en los que puedes orientar, lo que buscas aprender y un dato práctico de bienvenida para colegas nuevos."
+      },
+      {
+        "titulo": "3. Beneficio directo para tu facultad",
+        "descripcion": "Cada ficha respondida suma nodos y puentes reales al mapa vivo UCM, facilitando contactos por Teams, colaboración interdisciplinaria y apoyo oportuno entre estamentos."
+      }
+    ],
+    "garantiasTitulo": "Para que respondas con total tranquilidad",
+    "garantias": [
+      "Toma alrededor de 2 minutos en 3 pasos simples.",
+      "Tú decides qué detalles e intereses compartir; los campos opcionales pueden quedar en blanco.",
+      "Tu aporte queda visible únicamente como puente colaborativo dentro de la comunidad SinergIA UCM."
+    ]
+  },
   "duracionReunionMinutos": 15
 }

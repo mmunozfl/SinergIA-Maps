@@ -893,3 +893,79 @@ export function renderEvidenciaView({ state, modelo, uiState, setUiState, store,
 
   return el('div', { className: 'view-stack' }, [infoBanner, formEl, referenceAccordion, logsSection]);
 }
+
+/**
+ * Vista 5: ¿Quiénes somos? — Transparencia y propósito institucional de la encuesta SinergIA.
+ */
+export function renderQuienesSomosView({ modelo, onNavigate }) {
+  const qs = modelo.quienesSomos || {};
+  const autor = modelo.programa?.autor;
+
+  const heroCard = el('section', { className: 'card about-hero' }, [
+    el('span', { className: 'pill', text: `${modelo.programa.institucion} · ${modelo.programa.titulo}` }),
+    el('h2', { text: qs.titulo || '¿Quiénes somos y por qué existe esta encuesta?' }),
+    el('p', { className: 'about-hero__lead', text: qs.intro || modelo.programa.propositoAcordado }),
+    el('div', { className: 'button-row' }, [
+      el('button', {
+        type: 'button',
+        className: 'btn btn--cta',
+        text: 'Responder Entrevista ahora',
+        onClick: () => onNavigate('entrevista')
+      }),
+      el('button', {
+        type: 'button',
+        className: 'btn btn--ghost',
+        text: 'Ver Mapa en vivo',
+        onClick: () => onNavigate('mapa')
+      })
+    ])
+  ]);
+
+  const pillarsGrid = Array.isArray(qs.pilares) && qs.pilares.length
+    ? el(
+        'section',
+        { className: 'about-pillars' },
+        qs.pilares.map((pilar) =>
+          el('article', { className: 'card about-pillar' }, [
+            el('h3', { text: pilar.titulo }),
+            el('p', { className: 'muted', text: pilar.descripcion })
+          ])
+        )
+      )
+    : null;
+
+  const trustCard = el('section', { className: 'card' }, [
+    el('div', { className: 'about-trust-grid' }, [
+      el('div', {}, [
+        el('h3', { text: qs.garantiasTitulo || 'Transparencia y tranquilidad al responder' }),
+        el(
+          'ul',
+          { className: 'about-list' },
+          (qs.garantias || []).map((item) => el('li', { text: item }))
+        ),
+        autor?.correo
+          ? el('p', { className: 'muted-sm' }, [
+              '¿Tienes dudas o comentarios antes de responder? Escríbenos a ',
+              el('a', {
+                className: 'footer__author',
+                href: `mailto:${autor.correo}`,
+                text: autor.correo
+              }),
+              '.'
+            ])
+          : null
+      ]),
+      el('div', {}, [
+        el('h3', { text: 'Conductas Clave que fortalecemos en la UCM' }),
+        ...(modelo.conductas || []).map((c) =>
+          el('div', { className: 'ref-item' }, [
+            el('strong', { text: `${c.numero}. ${c.titulo}` }),
+            el('p', { className: 'muted-sm', text: c.descripcion })
+          ])
+        )
+      ])
+    ])
+  ]);
+
+  return el('div', { className: 'view-stack' }, [heroCard, pillarsGrid, trustCard]);
+}

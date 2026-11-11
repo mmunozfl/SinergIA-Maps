@@ -1,6 +1,12 @@
 import { createStore, decodePayload } from './core/store.js';
 import { el, renderInto } from './ui/dom.js';
-import { renderMapaView, renderEntrevistaView, renderCrucesView, renderEvidenciaView } from './ui/views.js';
+import {
+  renderMapaView,
+  renderEntrevistaView,
+  renderCrucesView,
+  renderEvidenciaView,
+  renderQuienesSomosView
+} from './ui/views.js';
 
 const MODEL_URL = './data/modelo-sinergia.json';
 
@@ -207,6 +213,7 @@ async function bootstrap() {
     if (uiState.route === 'entrevista') view = renderEntrevistaView(ctx);
     else if (uiState.route === 'cruces') view = renderCrucesView(ctx);
     else if (uiState.route === 'evidencia') view = renderEvidenciaView(ctx);
+    else if (uiState.route === 'quienes-somos') view = renderQuienesSomosView(ctx);
     else view = renderMapaView(ctx);
 
     renderInto(mainNode, view);
