@@ -36,6 +36,39 @@ export function buildTeamsChatUrl(targetProfile, myProfile) {
 }
 
 /**
+ * Construye enlace directo para crear reunión en Microsoft Teams (envía correo oficial con Aceptar/Rechazar).
+ */
+export function buildTeamsMeetingUrl({ targetProfile, myProfile, startDateTimeLocal, durationMinutes = 15 }) {
+  const start = startDateTimeLocal ? new Date(startDateTimeLocal) : new Date(Date.now() + 24 * 60 * 60 * 1000);
+  if (Number.isNaN(start.getTime())) {
+    throw new Error('Fecha u hora de reunión inválida.');
+  }
+  const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
+  const organizer = myProfile ? `${myProfile.nombre} (${myProfile.area})` : 'Colega UCM';
+  const subject = `SinergIA UCM: ${organizer} ↔ ${targetProfile.nombre}`;
+  const content = [
+    `Micro-encuentro SinergIA UCM (${durationMinutes} min) para conocernos y compartir apoyo entre áreas.`,
+    targetProfile.detalleAyudo ? `Puede orientar en: ${targetProfile.detalleAyudo}` : '',
+    targetProfile.interesesComunes?.length
+      ? `Intereses para romper el hielo: ${targetProfile.interesesComunes.join(', ')}`
+      : ''
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const toIsoUtc = (d) => d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const query = [
+    `subject=${encodeURIComponent(subject)}`,
+    `attendees=${encodeURIComponent(targetProfile.correo)}`,
+    `startTime=${encodeURIComponent(toIsoUtc(start))}`,
+    `endTime=${encodeURIComponent(toIsoUtc(end))}`,
+    `content=${encodeURIComponent(content)}`
+  ].join('&');
+
+  return `https://teams.microsoft.com/l/meeting/new?${query}`;
+}
+
+/**
  * Genera el contenido descargable de calendario (.ics) para Teams / Outlook.
  */
 export function buildIcsInvite({ targetProfile, myProfile, startDateTimeLocal, durationMinutes = 15 }) {

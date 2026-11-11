@@ -4,6 +4,7 @@ const EMPTY_STATE = {
   myProfileId: null,
   profiles: [],
   encounters: [],
+  savedIds: [],
   syncStatus: 'local'
 };
 
@@ -129,6 +130,7 @@ export function createStore(modelo) {
         myProfileId: typeof parsed.myProfileId === 'string' ? parsed.myProfileId : null,
         profiles: Array.isArray(parsed.profiles) ? parsed.profiles : [],
         encounters: Array.isArray(parsed.encounters) ? parsed.encounters : [],
+        savedIds: Array.isArray(parsed.savedIds) ? parsed.savedIds : [],
         syncStatus: 'local'
       };
     } catch {
@@ -140,7 +142,8 @@ export function createStore(modelo) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       myProfileId: state.myProfileId,
       profiles: state.profiles,
-      encounters: state.encounters
+      encounters: state.encounters,
+      savedIds: state.savedIds
     }));
     notify();
   }
@@ -353,6 +356,15 @@ export function createStore(modelo) {
     persistLocal();
   }
 
+  function toggleSavedProfile(profileId) {
+    if (!profileId) return false;
+    const list = Array.isArray(state.savedIds) ? state.savedIds : [];
+    const exists = list.includes(profileId);
+    state.savedIds = exists ? list.filter((id) => id !== profileId) : [...list, profileId];
+    persistLocal();
+    return !exists;
+  }
+
   return {
     getState,
     subscribe,
@@ -363,6 +375,7 @@ export function createStore(modelo) {
     addEncounter,
     removeEncounter,
     importBundle,
+    toggleSavedProfile,
     clearAll
   };
 }

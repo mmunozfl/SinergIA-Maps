@@ -1,9 +1,16 @@
 import { el, buildFormFields, readFormValues } from './dom.js';
 import { renderSynergyDiagram } from './graph.js';
 import { validateBySchema, decodePayload } from '../core/store.js';
-import { buildSynergyNetwork, filterProfiles, suggestMatches, computeMetrics, collectCommunityTags } from '../core/matcher.js';
+import {
+  analyzePairSynergy,
+  buildSynergyNetwork,
+  suggestMatches,
+  computeMetrics,
+  collectCommunityTags
+} from '../core/matcher.js';
 import {
   buildTeamsChatUrl,
+  buildTeamsMeetingUrl,
   buildIcsInvite,
   buildShareUrl,
   buildEvidenceMarkdown,
@@ -17,6 +24,92 @@ function canManageLocalProfiles() {
     new URLSearchParams(window.location.search).get('admin') === '1' ||
     ['localhost', '127.0.0.1'].includes(window.location.hostname)
   );
+}
+
+function getInitials(fullName) {
+  const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return 'UCM';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function svgIcon(paths, { fill = 'none', stroke = 'currentColor', strokeWidth = 2.4, size = 24 } = {}) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', String(size));
+  svg.setAttribute('height', String(size));
+  svg.setAttribute('fill', fill);
+  svg.setAttribute('stroke', stroke);
+  svg.setAttribute('stroke-width', String(strokeWidth));
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  for (const d of paths) {
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', d);
+    svg.appendChild(p);
+  }
+  return svg;
+}
+
+function attachHorizontalSwipe(cardEl, { onSwipeLeft, onSwipeRight, isDisabled }) {
+  let startX = 0;
+  let startY = 0;
+  let activePointerId = null;
+  let dx = 0;
+  let dragging = false;
+
+  const stampLeft = cardEl.querySelector('.deck-stamp--left');
+  const stampRight = cardEl.querySelector('.deck-stamp--right');
+
+  const resetVisual = () => {
+    cardEl.classList.remove('is-dragging');
+    cardEl.style.transform = '';
+    if (stampLeft) stampLeft.style.opacity = '0';
+    if (stampRight) stampRight.style.opacity = '0';
+  };
+
+  cardEl.addEventListener('pointerdown', (e) => {
+    if (isDisabled() || e.button > 0) return;
+    if (e.target.closest('button, a, input, select, summary, label')) return;
+    activePointerId = e.pointerId;
+    startX = e.clientX;
+    startY = e.clientY;
+    dx = 0;
+    dragging = true;
+    cardEl.classList.add('is-dragging');
+    cardEl.setPointerCapture?.(activePointerId);
+  });
+
+  cardEl.addEventListener('pointermove', (e) => {
+    if (!dragging || e.pointerId !== activePointerId) return;
+    dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    cardEl.style.transform = `translate3d(${dx}px, ${dy * 0.12}px, 0) rotate(${(dx * 0.035).toFixed(2)}deg)`;
+    const progress = Math.min(1, Math.max(0, (Math.abs(dx) - 18) / 72));
+    if (stampRight) stampRight.style.opacity = dx > 0 ? String(progress) : '0';
+    if (stampLeft) stampLeft.style.opacity = dx < 0 ? String(progress) : '0';
+  });
+
+  const finishGesture = (e) => {
+    if (!dragging || e.pointerId !== activePointerId) return;
+    dragging = false;
+    activePointerId = null;
+    if (dx >= 85) {
+      resetVisual();
+      onSwipeRight();
+      return;
+    }
+    if (dx <= -85) {
+      resetVisual();
+      onSwipeLeft();
+      return;
+    }
+    resetVisual();
+  };
+
+  cardEl.addEventListener('pointerup', finishGesture);
+  cardEl.addEventListener('pointercancel', finishGesture);
 }
 
 function defaultMeetingTime() {
@@ -45,8 +138,16 @@ function createActionButtonsForColleague(colleague, myProfile, modelo, onToast, 
     type: 'datetime-local',
     className: 'mini-datetime',
     value: defaultMeetingTime(),
-    'aria-label': 'Fecha y hora para invitación de calendario'
+    'aria-label': 'Fecha y hora sugerida para la reunión en Teams'
   });
+
+  const buildMeetingHref = () =>
+    buildTeamsMeetingUrl({
+      targetProfile: colleague,
+      myProfile,
+      startDateTimeLocal: dateInput.value,
+      durationMinutes: modelo.duracionReunionMinutos
+    });
 
   const btnTeams = el('a', {
     className: 'btn btn--primary btn--sm',
@@ -56,10 +157,35 @@ function createActionButtonsForColleague(colleague, myProfile, modelo, onToast, 
     text: 'Chat Teams'
   });
 
-  const btnCalendar = el('button', {
-    type: 'button',
+  const btnTeamsMeeting = el('a', {
     className: 'btn btn--secondary btn--sm',
-    text: `Agendar ${modelo.duracionReunionMinutos}m (.ics)`,
+    href: buildMeetingHref(),
+    target: '_blank',
+    rel: 'noopener noreferrer',
+    text: `Agendar ${modelo.duracionReunionMinutos}m en Teams`,
+    onClick: () => {
+      try {
+        btnTeamsMeeting.setAttribute('href', buildMeetingHref());
+        onToast('Teams abierto con la invitación de 15 min lista para enviar.');
+      } catch (err) {
+        onToast(err.message, true);
+      }
+    }
+  });
+
+  dateInput.addEventListener('change', () => {
+    try {
+      btnTeamsMeeting.setAttribute('href', buildMeetingHref());
+    } catch {
+      // Si el usuario limpia parcialmente la fecha, se mantiene el último enlace válido.
+    }
+  });
+
+  const btnIcsFallback = el('button', {
+    type: 'button',
+    className: 'btn-link-subtle',
+    text: '(.ics)',
+    title: 'Alternativa: descargar archivo .ics para Outlook de escritorio',
     onClick: () => {
       try {
         const ics = buildIcsInvite({
@@ -70,26 +196,34 @@ function createActionButtonsForColleague(colleague, myProfile, modelo, onToast, 
         });
         const slug = colleague.nombre.toLowerCase().replace(/[^a-z0-9]+/g, '-');
         downloadTextFile(`sinergia-${slug}.ics`, ics, 'text/calendar;charset=utf-8');
-        onToast('Invitación .ics descargada para Outlook / Teams.');
+        onToast('Invitación .ics descargada.');
       } catch (err) {
         onToast(err.message, true);
       }
     }
   });
 
-  const btnEvidence = el('button', {
-    type: 'button',
-    className: 'btn btn--ghost btn--sm',
-    text: 'Acta BUK',
-    onClick: () => onStartEncounter(colleague)
-  });
+  const btnEvidence =
+    canManageLocalProfiles() && onStartEncounter
+      ? el('button', {
+          type: 'button',
+          className: 'btn btn--ghost btn--sm',
+          text: 'Acta BUK',
+          onClick: () => onStartEncounter(colleague)
+        })
+      : null;
 
   return el('div', { className: 'colleague-actions' }, [
-    el('div', { className: 'colleague-actions__row' }, [btnTeams, btnCalendar, btnEvidence]),
+    el('div', { className: 'colleague-actions__row' }, [btnTeams, btnTeamsMeeting, btnEvidence]),
     el('div', { className: 'colleague-actions__schedule' }, [
-      el('span', { className: 'muted-xs', text: 'Hora sugerida para .ics:' }),
-      dateInput
-    ])
+      el('span', { className: 'muted-xs', text: 'Horario sugerido:' }),
+      dateInput,
+      btnIcsFallback
+    ]),
+    el('p', {
+      className: 'muted-xs colleague-actions__hint',
+      text: 'Teams envía la invitación oficial con Aceptar/Rechazar; si necesita otro horario pueden coordinarlo por Chat Teams.'
+    })
   ]);
 }
 
@@ -560,201 +694,427 @@ function renderInterviewSuccess(profile, allProfiles, modelo, setUiState, onToas
 }
 
 /**
- * Vista 3: Directorio y Cruces + Importador/Exportador.
+ * Vista 3: Conectar Áreas — Tarjetas verticales 1-a-1 deslizables para descubrir apoyo entre colegas.
  */
-export function renderCrucesView({ state, modelo, uiState, setUiState, store, onToast, onStartEncounter, onEditProfile }) {
+export function renderCrucesView({
+  state,
+  modelo,
+  uiState,
+  setUiState,
+  store,
+  onToast,
+  onNavigate,
+  onStartEncounter,
+  onEditProfile
+}) {
   const myProfile = state.profiles.find((p) => p.id === state.myProfileId) || null;
-  const filters = uiState.filters || { query: '', macroId: '', conductaId: '', onlyOtherAreas: false };
+  const savedIds = Array.isArray(state.savedIds) ? state.savedIds : [];
   const canManageLocal = canManageLocalProfiles();
 
-  const filtered = filterProfiles(state.profiles, { ...filters, myProfile });
+  const others = myProfile ? state.profiles.filter((p) => p.id !== myProfile.id) : state.profiles;
+  const isSoloSelfPreview = Boolean(myProfile && state.profiles.length === 1);
+  const basePool = isSoloSelfPreview ? state.profiles : others;
 
-  const searchInput = el('input', {
-    type: 'search',
-    placeholder: 'Buscar por nombre, facultad, unidad o tema...',
-    value: filters.query,
-    onInput: (e) => setUiState({ filters: { ...filters, query: e.target.value } })
+  const filteredPool = basePool.filter((p) => {
+    if (uiState.deckFilterMacro && p.macroId !== uiState.deckFilterMacro) return false;
+    if (uiState.deckSavedOnly && !savedIds.includes(p.id)) return false;
+    return true;
   });
+
+  const deckItems = filteredPool
+    .map((p) => ({
+      profile: p,
+      synergy: myProfile && p.id !== myProfile.id ? analyzePairSynergy(myProfile, p) : null
+    }))
+    .sort((a, b) => {
+      if (a.synergy && b.synergy && b.synergy.score !== a.synergy.score) {
+        return b.synergy.score - a.synergy.score;
+      }
+      return (b.profile.updatedAt || '').localeCompare(a.profile.updatedAt || '') ||
+        a.profile.nombre.localeCompare(b.profile.nombre);
+    });
+
+  const rawIndex = Math.max(0, uiState.deckIndex || 0);
+  const isCompletedDeck = deckItems.length > 0 && rawIndex >= deckItems.length;
+  const currentItem = !isCompletedDeck && deckItems.length ? deckItems[rawIndex] : null;
+  const current = currentItem?.profile || null;
+  const currentSavedCount = savedIds.filter((id) => basePool.some((p) => p.id === id)).length;
 
   const macroSelect = el(
     'select',
     {
-      onChange: (e) => setUiState({ filters: { ...filters, macroId: e.target.value } })
+      className: 'deck-select',
+      'aria-label': 'Filtrar por Facultad o Vicerrectoría',
+      onChange: (e) =>
+        setUiState({ deckFilterMacro: e.target.value, deckIndex: 0, deckConnectedId: null })
     },
     [
-      el('option', { value: '', text: 'Todas las Vicerrectorías / Facultades' }),
+      el('option', { value: '', text: 'Todas las áreas UCM' }),
       ...(modelo.organigramaUCM || []).map((g) =>
-        el('option', { value: g.macroId, text: g.macroNombre, selected: filters.macroId === g.macroId })
-      )
-    ]
-  );
-
-  const conductaSelect = el(
-    'select',
-    {
-      onChange: (e) => setUiState({ filters: { ...filters, conductaId: e.target.value } })
-    },
-    [
-      el('option', { value: '', text: 'Todas las Conductas Clave' }),
-      ...(modelo.conductas || []).map((c) =>
-        el('option', { value: c.id, text: `${c.numero}. ${c.titulo}`, selected: filters.conductaId === c.id })
-      )
-    ]
-  );
-
-  const onlyOtherCheckbox = el('label', { className: 'checkbox-inline' }, [
-    el('input', {
-      type: 'checkbox',
-      checked: Boolean(filters.onlyOtherAreas),
-      onChange: (e) => setUiState({ filters: { ...filters, onlyOtherAreas: e.target.checked } })
-    }),
-    ' Solo mostrar otras unidades'
-  ]);
-
-  const fileInput = el('input', {
-    type: 'file',
-    accept: '.json,application/json',
-    multiple: true,
-    onChange: async (e) => {
-      const files = [...(e.target.files || [])];
-      if (!files.length) return;
-      let totalProfiles = 0;
-      for (const file of files) {
-        try {
-          const parsed = JSON.parse(await file.text());
-          const res = store.importBundle(parsed);
-          totalProfiles += res.importedProfiles;
-        } catch (err) {
-          onToast(`Error al importar ${file.name}: ${err.message}`, true);
-        }
-      }
-      if (totalProfiles > 0) onToast(`Se importaron ${totalProfiles} ficha(s) al directorio.`);
-      fileInput.value = '';
-    }
-  });
-
-  const pasteInput = el('input', {
-    type: 'text',
-    placeholder: 'Pega aquí un enlace #import=... compartido por un colega'
-  });
-
-  const importPanel = el('details', { className: 'card import-box' }, [
-    el('summary', { text: 'Importar o respaldar respuestas reales (JSON / Enlace)' }),
-    el('div', { className: 'import-box__body' }, [
-      el('div', { className: 'import-row' }, [
-        el('label', { text: 'Cargar uno o varios archivos .json:' }),
-        fileInput
-      ]),
-      el('div', { className: 'import-row' }, [
-        pasteInput,
-        el('button', {
-          type: 'button',
-          className: 'btn btn--secondary btn--sm',
-          text: 'Importar enlace',
-          onClick: () => {
-            try {
-              const raw = pasteInput.value.trim();
-              const token = raw.includes('#import=') ? raw.split('#import=')[1] : raw;
-              const payload = decodePayload(token);
-              const res = store.importBundle(payload);
-              pasteInput.value = '';
-              onToast(`Importado correctamente (${res.importedProfiles} ficha).`);
-            } catch {
-              onToast('El enlace pegado no tiene un formato válido.', true);
-            }
-          }
+        el('option', {
+          value: g.macroId,
+          text: g.macroNombre,
+          selected: uiState.deckFilterMacro === g.macroId
         })
-      ]),
-      el('div', { className: 'import-row' }, [
-        el('button', {
-          type: 'button',
-          className: 'btn btn--ghost btn--sm',
-          text: 'Exportar índice JSON (para respaldo en GitHub)',
-          onClick: () => {
-            downloadTextFile('index.json', JSON.stringify(state.profiles, null, 2), 'application/json;charset=utf-8');
-            onToast('Archivo index.json descargado con todas las fichas reales.');
-          }
-        }),
-        canManageLocal && state.profiles.length
-          ? el('button', {
-              type: 'button',
-              className: 'btn btn--danger btn--sm',
-              text: 'Limpiar fichas locales de prueba',
-              title: 'Borra únicamente los datos guardados en este navegador (no elimina filas en Supabase).',
-              onClick: () => {
-                if (!window.confirm('¿Vaciar todas las fichas guardadas en este navegador? (No afecta a Supabase)')) return;
-                store.clearAll();
-                setUiState({ selectedNodeId: null });
-                onToast('Fichas locales eliminadas. La app quedó limpia.');
-              }
-            })
-          : null
-      ])
+      )
+    ]
+  );
+
+  const savedFilterBtn = el('button', {
+    type: 'button',
+    className: uiState.deckSavedOnly ? 'btn btn--secondary btn--sm' : 'btn btn--ghost btn--sm',
+    text: `Guardados (${currentSavedCount})`,
+    onClick: () =>
+      setUiState({
+        deckSavedOnly: !uiState.deckSavedOnly,
+        deckIndex: 0,
+        deckConnectedId: null
+      })
+  });
+
+  const topbar = el('div', { className: 'card deck-topbar' }, [
+    el('div', { className: 'deck-topbar__filters' }, [macroSelect, savedFilterBtn]),
+    el('div', { className: 'deck-topbar__progress' }, [
+      rawIndex > 0 && deckItems.length
+        ? el('button', {
+            type: 'button',
+            className: 'btn btn--ghost btn--sm',
+            text: '← Anterior',
+            onClick: () =>
+              setUiState({ deckIndex: Math.max(0, Math.min(rawIndex, deckItems.length) - 1), deckConnectedId: null })
+          })
+        : null,
+      el('span', {
+        text: deckItems.length
+          ? isCompletedDeck
+            ? `${deckItems.length} de ${deckItems.length}`
+            : `${rawIndex + 1} de ${deckItems.length}`
+          : '0 fichas'
+      })
     ])
   ]);
 
-  const listNode = filtered.length
-    ? el(
-        'div',
-        { className: 'cards-grid' },
-        filtered.map((p) =>
-          el('article', { className: 'card profile-card' }, [
-            el('div', { className: 'profile-card__head' }, [
-              el('span', { className: 'pill', text: p.macroNombre }),
-              el('div', { className: 'profile-card__meta' }, [
-                p.duracionSegundos
-                  ? el('span', { className: 'muted-xs', text: `⏱ ${formatDuration(p.duracionSegundos)}` })
-                  : null,
-                canManageLocal && onEditProfile
-                  ? el('button', {
-                      type: 'button',
-                      className: 'btn btn--ghost btn--sm',
-                      text: 'Editar',
-                      title: 'Editar unidad o respuestas de esta ficha',
-                      onClick: () => onEditProfile(p)
-                    })
-                  : null,
-                canManageLocal
-                  ? el('button', {
-                      type: 'button',
-                      className: 'btn btn--ghost btn--sm',
-                      text: 'Eliminar',
-                      title: 'Eliminar esta ficha de prueba del navegador',
-                      onClick: () => {
-                        store.removeProfile(p.id);
-                        if (uiState.selectedNodeId === p.id) setUiState({ selectedNodeId: null });
-                        onToast(`Ficha de ${p.nombre} eliminada de este navegador.`);
-                      }
-                    })
-                  : null
-              ])
-            ]),
-            el('h3', { text: p.nombre }),
-            el('p', { className: 'muted', text: `${p.cargo} · ${p.area}` }),
-            el('p', { className: 'profile-card__desc', text: p.queHace }),
-            el('div', { className: 'profile-card__tags' }, [
-              el('span', { className: 'muted-xs', text: 'Puede apoyar en:' }),
-              renderTagList(p.temasAyudo, 'work')
-            ]),
-            p.interesesComunes?.length
-              ? el('div', { className: 'profile-card__tags' }, [
-                  el('span', { className: 'muted-xs', text: 'Afinidades:' }),
-                  renderTagList(p.interesesComunes, 'human')
-                ])
-              : null,
-            createActionButtonsForColleague(p, myProfile, modelo, onToast, onStartEncounter)
-          ])
-        )
-      )
-    : el('div', { className: 'card empty-box' }, [
-        el('p', { text: state.profiles.length ? 'No hay resultados con los filtros actuales.' : modelo.programa.guiaVacio })
-      ]);
+  const stage = el('div', { className: 'deck-stage' });
 
-  return el('div', { className: 'view-stack' }, [
-    el('div', { className: 'card filters-bar' }, [searchInput, macroSelect, conductaSelect, onlyOtherCheckbox]),
-    importPanel,
-    listNode
-  ]);
+  const advanceDeck = () => {
+    setUiState({ deckIndex: rawIndex + 1, deckConnectedId: null });
+  };
+
+  if (isSoloSelfPreview) {
+    stage.appendChild(
+      el('div', { className: 'info-banner' }, [
+        el('strong', { text: 'Vista previa con tu propia ficha' }),
+        el('p', {
+          text: 'Aún eres el primer registro en vivo. Cuando tus colegas respondan la encuesta, verás aquí sus tarjetas para explorar y conectar.'
+        })
+      ])
+    );
+  }
+
+  if (!deckItems.length) {
+    const emptyMsg = !state.profiles.length
+      ? modelo.programa.guiaVacio
+      : uiState.deckSavedOnly
+        ? 'Todavía no guardas colegas en favoritos. Usa el ícono central de guardar en cualquier tarjeta para revisarlo más tarde.'
+        : 'No hay funcionarios registrados en esa área con los filtros actuales.';
+    stage.appendChild(
+      el('div', { className: 'card deck-empty' }, [
+        el('h3', { text: 'Sin tarjetas para mostrar aquí' }),
+        el('p', { className: 'muted', text: emptyMsg }),
+        el('div', { className: 'button-row', style: 'justify-content: center;' }, [
+          uiState.deckFilterMacro || uiState.deckSavedOnly
+            ? el('button', {
+                type: 'button',
+                className: 'btn btn--secondary',
+                text: 'Ver todos los colegas',
+                onClick: () => setUiState({ deckFilterMacro: '', deckSavedOnly: false, deckIndex: 0, deckConnectedId: null })
+              })
+            : el('button', {
+                type: 'button',
+                className: 'btn btn--cta',
+                text: 'Responder Entrevista',
+                onClick: () => onNavigate('entrevista')
+              })
+        ])
+      ])
+    );
+  } else if (isCompletedDeck) {
+    stage.appendChild(
+      el('div', { className: 'card deck-empty' }, [
+        el('h3', { text: 'Recorrido completado' }),
+        el('p', {
+          className: 'muted',
+          text: `Revisaste las ${deckItems.length} fichas disponibles en esta selección.`
+        }),
+        el('div', { className: 'button-row', style: 'justify-content: center;' }, [
+          el('button', {
+            type: 'button',
+            className: 'btn btn--primary',
+            text: 'Volver al inicio',
+            onClick: () => setUiState({ deckIndex: 0, deckConnectedId: null })
+          }),
+          currentSavedCount && !uiState.deckSavedOnly
+            ? el('button', {
+                type: 'button',
+                className: 'btn btn--secondary',
+                text: `Ver Guardados (${currentSavedCount})`,
+                onClick: () => setUiState({ deckSavedOnly: true, deckIndex: 0, deckConnectedId: null })
+              })
+            : null
+        ])
+      ])
+    );
+  } else if (current) {
+    const isSaved = savedIds.includes(current.id);
+    const isConnected = uiState.deckConnectedId === current.id;
+    const synergy = currentItem.synergy;
+
+    const cardEl = el('article', { className: isConnected ? 'deck-card is-connected' : 'deck-card' }, [
+      el('span', { className: 'deck-stamp deck-stamp--right', text: 'Conectar' }),
+      el('span', { className: 'deck-stamp deck-stamp--left', text: 'Siguiente' }),
+      el('header', { className: 'deck-card__hero' }, [
+        el('div', { className: 'deck-avatar', 'aria-hidden': 'true', text: getInitials(current.nombre) }),
+        el('div', { className: 'deck-card__identity' }, [
+          el('div', { className: 'deck-card__badges' }, [
+            el('span', { className: 'deck-pill', text: current.macroNombre }),
+            synergy && synergy.score > 0
+              ? el('span', {
+                  className: 'deck-pill deck-pill--gold',
+                  text: synergy.crossMacro ? 'Puente interáreas' : 'Afinidad detectada'
+                })
+              : null,
+            isSaved ? el('span', { className: 'deck-pill', text: 'Guardado' }) : null
+          ]),
+          el('h3', { text: current.nombre }),
+          el('p', { className: 'deck-card__role', text: `${current.cargo} · ${current.area}` })
+        ])
+      ]),
+      el('div', { className: 'deck-card__body' }, [
+        el('section', { className: 'deck-section' }, [
+          el('span', { className: 'deck-section__title', text: 'En qué puede ayudarte' }),
+          renderTagList(current.temasAyudo, 'work'),
+          current.detalleAyudo ? el('p', { className: 'deck-section__detail', text: current.detalleAyudo }) : null
+        ]),
+        el('section', { className: 'deck-section' }, [
+          el('span', { className: 'deck-section__title', text: 'Ayudas o temas que necesita' }),
+          current.temasBusco?.length
+            ? renderTagList(current.temasBusco, 'seek')
+            : el('p', { className: 'muted-xs', text: 'Abierto a conversar entre áreas.' }),
+          current.detalleBusco ? el('p', { className: 'deck-section__detail', text: current.detalleBusco }) : null
+        ]),
+        el('section', { className: 'deck-section deck-section--icebreaker' }, [
+          el('span', { className: 'deck-section__title', text: 'Gustos personales y dato UCM' }),
+          current.interesesComunes?.length
+            ? renderTagList(current.interesesComunes, 'human')
+            : el('p', { className: 'muted-xs', text: 'Sin gustos registrados.' }),
+          current.datoOnboarding ? el('p', { className: 'deck-section__detail', text: current.datoOnboarding }) : null,
+          current.disponibilidad
+            ? el('p', { className: 'muted-xs', style: 'margin-top: 0.35rem;', text: `Disponibilidad: ${current.disponibilidad}` })
+            : null
+        ])
+      ])
+    ]);
+
+    attachHorizontalSwipe(cardEl, {
+      onSwipeLeft: advanceDeck,
+      onSwipeRight: () => setUiState({ deckConnectedId: current.id }),
+      isDisabled: () => isConnected
+    });
+
+    stage.appendChild(cardEl);
+
+    const btnSkip = el('button', {
+      type: 'button',
+      className: 'deck-btn deck-btn--skip',
+      'aria-label': 'Pasar al siguiente colega',
+      title: 'Pasar al siguiente (flecha izquierda)',
+      onClick: advanceDeck
+    });
+    btnSkip.appendChild(svgIcon(['M18 6L6 18', 'M6 6l12 12'], { strokeWidth: 2.8 }));
+
+    const btnSave = el('button', {
+      type: 'button',
+      className: isSaved ? 'deck-btn deck-btn--save is-saved' : 'deck-btn deck-btn--save',
+      'aria-label': isSaved ? 'Quitar de guardados' : 'Guardar en favoritos para ver después',
+      title: isSaved ? 'Quitar de guardados' : 'Guardar para después',
+      onClick: () => {
+        const added = store.toggleSavedProfile(current.id);
+        onToast(added ? `${current.nombre} guardado en tus favoritos.` : `${current.nombre} quitado de favoritos.`);
+      }
+    });
+    btnSave.appendChild(
+      svgIcon(['M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z'], {
+        fill: isSaved ? 'currentColor' : 'none',
+        strokeWidth: 2.3,
+        size: 22
+      })
+    );
+
+    const btnConnect = el('button', {
+      type: 'button',
+      className: isConnected ? 'deck-btn deck-btn--connect is-active' : 'deck-btn deck-btn--connect',
+      'aria-label': 'Conectar por Teams',
+      title: 'Conectar con este colega (flecha derecha)',
+      onClick: () => setUiState({ deckConnectedId: current.id })
+    });
+    btnConnect.appendChild(svgIcon(['M20 6L9 17l-5-5'], { strokeWidth: 3 }));
+
+    stage.appendChild(
+      el('div', { className: 'deck-actions' }, [
+        el('div', { className: 'deck-action-item' }, [btnSkip, el('span', { className: 'deck-action-label', text: 'Saltar' })]),
+        el('div', { className: 'deck-action-item' }, [
+          btnSave,
+          el('span', { className: 'deck-action-label', text: isSaved ? 'Guardado' : 'Guardar' })
+        ]),
+        el('div', { className: 'deck-action-item' }, [btnConnect, el('span', { className: 'deck-action-label', text: 'Conectar' })])
+      ])
+    );
+
+    if (isConnected) {
+      const iceTopic = current.interesesComunes?.[0] || current.temasAyudo?.[0] || current.area;
+      stage.appendChild(
+        el('div', { className: 'deck-connect-panel' }, [
+          el('div', { className: 'deck-connect-panel__head' }, [
+            el('h4', { text: `Conecta con ${current.nombre}` }),
+            el('span', { className: 'pill pill--gold', text: current.correo })
+          ]),
+          el('p', {
+            className: 'muted-sm',
+            text: `Tema para romper el hielo: "${iceTopic}". Inicia un chat directo o envía invitación oficial de 15 min por Teams:`
+          }),
+          createActionButtonsForColleague(current, myProfile, modelo, onToast, onStartEncounter),
+          el('div', { className: 'deck-connect-panel__footer' }, [
+            el('button', {
+              type: 'button',
+              className: 'btn btn--ghost btn--sm',
+              text: 'Seguir explorando colegas →',
+              onClick: advanceDeck
+            })
+          ])
+        ])
+      );
+    }
+
+    const onKeyDown = (e) => {
+      if (!stage.isConnected) {
+        window.removeEventListener('keydown', onKeyDown);
+        return;
+      }
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+      if (e.key === 'ArrowLeft') {
+        window.removeEventListener('keydown', onKeyDown);
+        advanceDeck();
+      } else if (e.key === 'ArrowRight' && !isConnected) {
+        window.removeEventListener('keydown', onKeyDown);
+        setUiState({ deckConnectedId: current.id });
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+  }
+
+  let adminPanel = null;
+  if (canManageLocal) {
+    const fileInput = el('input', {
+      type: 'file',
+      accept: '.json,application/json',
+      multiple: true,
+      onChange: async (e) => {
+        const files = [...(e.target.files || [])];
+        if (!files.length) return;
+        let totalProfiles = 0;
+        for (const file of files) {
+          try {
+            const parsed = JSON.parse(await file.text());
+            const res = store.importBundle(parsed);
+            totalProfiles += res.importedProfiles;
+          } catch (err) {
+            onToast(`Error al importar ${file.name}: ${err.message}`, true);
+          }
+        }
+        if (totalProfiles > 0) onToast(`Se importaron ${totalProfiles} ficha(s).`);
+        fileInput.value = '';
+      }
+    });
+
+    const pasteInput = el('input', {
+      type: 'text',
+      placeholder: 'Pega un enlace #import=...'
+    });
+
+    adminPanel = el('details', { className: 'card import-box deck-admin-footer' }, [
+      el('summary', { text: 'Herramientas locales de administración (JSON / Edición)' }),
+      el('div', { className: 'import-box__body' }, [
+        current
+          ? el('div', { className: 'import-row' }, [
+              onEditProfile
+                ? el('button', {
+                    type: 'button',
+                    className: 'btn btn--ghost btn--sm',
+                    text: `Editar ficha actual (${current.nombre})`,
+                    onClick: () => onEditProfile(current)
+                  })
+                : null,
+              el('button', {
+                type: 'button',
+                className: 'btn btn--ghost btn--sm',
+                text: 'Quitar de caché local',
+                onClick: () => {
+                  store.removeProfile(current.id);
+                  setUiState({ deckIndex: 0, deckConnectedId: null });
+                  onToast(`Ficha de ${current.nombre} eliminada de este navegador.`);
+                }
+              })
+            ])
+          : null,
+        el('div', { className: 'import-row' }, [el('label', { text: 'Importar JSON:' }), fileInput]),
+        el('div', { className: 'import-row' }, [
+          pasteInput,
+          el('button', {
+            type: 'button',
+            className: 'btn btn--secondary btn--sm',
+            text: 'Importar enlace',
+            onClick: () => {
+              try {
+                const raw = pasteInput.value.trim();
+                const token = raw.includes('#import=') ? raw.split('#import=')[1] : raw;
+                const res = store.importBundle(decodePayload(token));
+                pasteInput.value = '';
+                onToast(`Importado correctamente (${res.importedProfiles} ficha).`);
+              } catch {
+                onToast('Enlace inválido.', true);
+              }
+            }
+          })
+        ]),
+        el('div', { className: 'import-row' }, [
+          el('button', {
+            type: 'button',
+            className: 'btn btn--ghost btn--sm',
+            text: 'Exportar índice JSON',
+            onClick: () => {
+              downloadTextFile('index.json', JSON.stringify(state.profiles, null, 2), 'application/json;charset=utf-8');
+              onToast('index.json descargado.');
+            }
+          }),
+          state.profiles.length
+            ? el('button', {
+                type: 'button',
+                className: 'btn btn--danger btn--sm',
+                text: 'Limpiar caché local',
+                onClick: () => {
+                  if (!window.confirm('¿Vaciar fichas locales de este navegador? (No afecta a Supabase)')) return;
+                  store.clearAll();
+                  setUiState({ selectedNodeId: null, deckIndex: 0, deckConnectedId: null });
+                  onToast('Caché local limpia.');
+                }
+              })
+            : null
+        ])
+      ])
+    ]);
+  }
+
+  return el('div', { className: 'deck-shell' }, [topbar, stage, adminPanel]);
 }
 
 /**

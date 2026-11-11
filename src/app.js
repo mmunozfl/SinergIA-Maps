@@ -34,6 +34,7 @@ function parseRoute(modelo) {
   const rawHash = window.location.hash.replace(/^#/, '');
   if (rawHash.startsWith('import=')) return 'import';
   const valid = new Set((modelo.navegacion || []).map((n) => n.id));
+  valid.add('evidencia');
   return valid.has(rawHash) ? rawHash : 'mapa';
 }
 
@@ -74,7 +75,10 @@ async function bootstrap() {
     interviewDraft: null,
     interviewStartedAt: Date.now(),
     interviewCompletedProfileId: null,
-    filters: { query: '', macroId: '', conductaId: '', onlyOtherAreas: false },
+    deckIndex: 0,
+    deckFilterMacro: '',
+    deckSavedOnly: false,
+    deckConnectedId: null,
     encounterTarget: null
   };
 
@@ -115,6 +119,9 @@ async function bootstrap() {
 
   function navigate(routeId) {
     uiState.route = routeId;
+    if (routeId === 'cruces') {
+      uiState.deckConnectedId = null;
+    }
     if (routeId === 'entrevista') {
       uiState.interviewMode = 'new';
       uiState.editingProfileId = null;
