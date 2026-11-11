@@ -117,6 +117,31 @@ async function bootstrap() {
     }
   }
 
+  function buildRouteUrl(routeId) {
+    const base = `${window.location.pathname}${window.location.search}`;
+    return routeId === 'mapa' ? base : `${base}#${routeId}`;
+  }
+
+  function clearDefaultMapHash() {
+    if (window.location.hash === '#mapa') {
+      history.replaceState(null, '', buildRouteUrl('mapa'));
+    }
+  }
+
+  function createBrandIcon(altText) {
+    const faviconHref = document.querySelector('link[rel="icon"]')?.getAttribute('href');
+    if (faviconHref) {
+      return el('img', {
+        className: 'brand__icon',
+        src: faviconHref,
+        alt: altText,
+        width: '44',
+        height: '44'
+      });
+    }
+    return el('span', { text: 'S' });
+  }
+
   function navigate(routeId) {
     uiState.route = routeId;
     if (routeId === 'cruces') {
@@ -130,8 +155,10 @@ async function bootstrap() {
       uiState.interviewCompletedProfileId = null;
       uiState.interviewStartedAt = Date.now();
     }
-    if (window.location.hash !== `#${routeId}`) {
-      window.location.hash = `#${routeId}`;
+    const targetUrl = buildRouteUrl(routeId);
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (currentUrl !== targetUrl) {
+      history.pushState(null, '', targetUrl);
     }
     render();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -146,7 +173,7 @@ async function bootstrap() {
     uiState.interviewCompletedProfileId = null;
     uiState.interviewStartedAt = Date.now();
     if (window.location.hash !== '#entrevista') {
-      window.location.hash = '#entrevista';
+      history.pushState(null, '', buildRouteUrl('entrevista'));
     }
     render();
   }
@@ -168,20 +195,33 @@ async function bootstrap() {
       onToast('No se pudo leer el enlace de ficha compartido.', true);
     }
     uiState.route = 'cruces';
-    history.replaceState(null, '', '#cruces');
+    history.replaceState(null, '', buildRouteUrl('cruces'));
   }
 
   function renderHeader() {
     renderInto(
       headerNode,
       el('div', { className: 'container topbar__inner' }, [
-        el('div', { className: 'brand' }, [
-          el('div', { className: 'brand__mark', text: 'UCM' }),
-          el('div', {}, [
-            el('h1', { className: 'brand__title', text: modelo.programa.nombreApp }),
-            el('p', { className: 'brand__sub', text: modelo.programa.subtitulo })
-          ])
-        ]),
+        el(
+          'a',
+          {
+            className: 'brand',
+            href: buildRouteUrl('mapa'),
+            title: `Volver a ${modelo.programa.nombreApp}`,
+            'aria-label': `Ir al inicio (${modelo.programa.nombreApp})`,
+            onClick: (e) => {
+              e.preventDefault();
+              navigate('mapa');
+            }
+          },
+          [
+            el('div', { className: 'brand__mark' }, createBrandIcon(modelo.programa.nombreApp)),
+            el('div', {}, [
+              el('h1', { className: 'brand__title', text: modelo.programa.nombreApp }),
+              el('p', { className: 'brand__sub', text: modelo.programa.subtitulo })
+            ])
+          ]
+        ),
         el('div', { className: 'topbar__right' }, [
           el(
             'nav',
@@ -236,17 +276,22 @@ async function bootstrap() {
     );
   }
 
-  window.addEventListener('hashchange', () => {
+  function syncRouteFromUrl() {
     handleImportFromHash();
     uiState.route = parseRoute(modelo);
+    clearDefaultMapHash();
     render();
-  });
+  }
+
+  window.addEventListener('hashchange', syncRouteFromUrl);
+  window.addEventListener('popstate', syncRouteFromUrl);
 
   store.subscribe(() => {
     if (isEditingActiveForm()) return;
     render();
   });
   handleImportFromHash();
+  clearDefaultMapHash();
   render();
   await store.syncFromSources();
 
