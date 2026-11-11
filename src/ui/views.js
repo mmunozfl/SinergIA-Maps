@@ -28,7 +28,7 @@ function canManageLocalProfiles() {
 
 function getInitials(fullName) {
   const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return 'UCM';
+  if (!parts.length) return 'SM';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
@@ -256,10 +256,10 @@ export function renderMapaView({ state, modelo, uiState, setUiState, onToast, on
   const diagramPanel = el('section', { className: 'card card--mapa' }, [
     el('div', { className: 'card__header card__header--compact' }, [
       el('div', {}, [
-        el('h2', { text: 'Mapa Interactivo de Sinergia vs. Organigrama UCM' }),
+        el('h2', { text: 'Mapa Interactivo de Sinergia vs. Organigrama' }),
         el('p', {
           className: 'muted',
-          text: 'Alterna entre la Red de Sinergia y el Organigrama oficial UCM (mayo 2026) para explorar conexiones y hacer clic en cualquier colega.'
+          text: 'Alterna entre la Red de Sinergia y el Organigrama para explorar conexiones y hacer clic en cualquier colega.'
         })
       ])
     ]),
@@ -275,7 +275,7 @@ export function renderMapaView({ state, modelo, uiState, setUiState, onToast, on
       },
       onToggleMode: (nextMode) => setUiState({ diagramMode: nextMode }),
       onExportSvg: (svgNode) => {
-        exportSvgNode(svgNode, 'mapa-sinergia-ucm.svg');
+        exportSvgNode(svgNode, 'mapa-sinergia-maps.svg');
         onToast('Mapa SVG descargado para adjuntar en BUK o presentaciones.');
       }
     })
@@ -317,7 +317,7 @@ function renderInspectorCard(profile, allProfiles, myProfile, modelo, onToast, o
       ]),
       el('h3', { text: profile.nombre }),
       el('p', { className: 'muted', text: `${profile.cargo} · ${profile.area}` }),
-      profile.antiguedad ? el('p', { className: 'muted-xs', text: `Antigüedad UCM: ${profile.antiguedad}` }) : null,
+      profile.antiguedad ? el('p', { className: 'muted-xs', text: `Antigüedad: ${profile.antiguedad}` }) : null,
       profile.duracionSegundos
         ? el('p', { className: 'muted-xs', text: `Respondió en ${formatDuration(profile.duracionSegundos)}` })
         : null
@@ -340,7 +340,7 @@ function renderInspectorCard(profile, allProfiles, myProfile, modelo, onToast, o
       el('h4', { text: 'Fortaleza y puente humano' }),
       el('p', { className: 'muted-sm', text: findModelLabel(modelo, 'conductas', profile.conductaFortaleza) }),
       renderTagList(profile.interesesComunes, 'human'),
-      el('p', { className: 'muted-sm', text: `Dato UCM (Onboarding): ${profile.datoOnboarding}` })
+      el('p', { className: 'muted-sm', text: `Dato práctico (Onboarding): ${profile.datoOnboarding}` })
     ]),
     matches.length
       ? el('div', { className: 'inspector-section' }, [
@@ -625,7 +625,7 @@ function renderInterviewSuccess(profile, allProfiles, modelo, setUiState, onToas
     el('h2', { text: `¡Gracias, ${profile.nombre}!` }),
     el('p', {
       className: 'muted',
-      text: 'Tus respuestas ya aparecen en el Mapa SinergIA y en la vista sobre el Organigrama UCM.'
+      text: 'Tus respuestas ya aparecen en el Mapa SinergIA y en la vista sobre el Organigrama.'
     }),
     el('div', { className: 'success-actions' }, [
       el('button', {
@@ -744,12 +744,12 @@ export function renderCrucesView({
     'select',
     {
       className: 'deck-select',
-      'aria-label': 'Filtrar por Facultad o Vicerrectoría',
+      'aria-label': 'Filtrar por macrounidad o área',
       onChange: (e) =>
         setUiState({ deckFilterMacro: e.target.value, deckIndex: 0, deckConnectedId: null })
     },
     [
-      el('option', { value: '', text: 'Todas las áreas UCM' }),
+      el('option', { value: '', text: 'Todas las áreas' }),
       ...(modelo.organigramaUCM || []).map((g) =>
         el('option', {
           value: g.macroId,
@@ -903,7 +903,7 @@ export function renderCrucesView({
           current.detalleBusco ? el('p', { className: 'deck-section__detail', text: current.detalleBusco }) : null
         ]),
         el('section', { className: 'deck-section deck-section--icebreaker' }, [
-          el('span', { className: 'deck-section__title', text: 'Gustos personales y dato UCM' }),
+          el('span', { className: 'deck-section__title', text: 'Gustos personales y dato práctico' }),
           current.interesesComunes?.length
             ? renderTagList(current.interesesComunes, 'human')
             : el('p', { className: 'muted-xs', text: 'Sin gustos registrados.' }),
@@ -1147,7 +1147,7 @@ export function renderEvidenciaView({ state, modelo, uiState, setUiState, store,
     el('h2', { text: 'Generar comprobante / acta para subir a BUK' }),
     el('p', {
       className: 'muted',
-      text: 'Paso 03 del programa Sintoniza: documenta aquí lo implementado y descárgalo en PDF o texto para tu respaldo en BUK.'
+      text: 'Documenta aquí lo implementado y descárgalo en PDF o texto para tu respaldo en BUK.'
     })
   ]);
 
@@ -1183,7 +1183,7 @@ export function renderEvidenciaView({ state, modelo, uiState, setUiState, store,
   });
 
   const referenceAccordion = el('details', { className: 'card no-print' }, [
-    el('summary', { text: 'Referencia rápida: Modelo Susan Long y Conductas Clave (Sintoniza UCM)' }),
+    el('summary', { text: 'Referencia rápida: Modelo Susan Long y Conductas Clave' }),
     el('div', { className: 'reference-grid' }, [
       el('div', {}, [
         el('h4', { text: 'Etapas de Sinergia (Long y Hording, 2013)' }),
@@ -1195,7 +1195,7 @@ export function renderEvidenciaView({ state, modelo, uiState, setUiState, store,
         )
       ]),
       el('div', {}, [
-        el('h4', { text: 'Las 4 Conductas Clave UCM' }),
+        el('h4', { text: 'Las 4 Conductas Clave' }),
         ...(modelo.conductas || []).map((c) =>
           el('div', { className: 'ref-item' }, [
             el('strong', { text: `${c.numero}. ${c.titulo}` }),
@@ -1316,7 +1316,7 @@ export function renderQuienesSomosView({ modelo, onNavigate }) {
           : null
       ]),
       el('div', {}, [
-        el('h3', { text: 'Conductas Clave que fortalecemos en la UCM' }),
+        el('h3', { text: 'Conductas Clave que fortalecemos' }),
         ...(modelo.conductas || []).map((c) =>
           el('div', { className: 'ref-item' }, [
             el('strong', { text: `${c.numero}. ${c.titulo}` }),

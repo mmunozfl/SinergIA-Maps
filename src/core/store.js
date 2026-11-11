@@ -1,4 +1,5 @@
-const STORAGE_KEY = 'sinergia_ucm_state_v2';
+const STORAGE_KEY = 'sinergia_maps_state_v2';
+const LEGACY_STORAGE_KEY = 'sinergia_ucm_state_v2';
 
 const EMPTY_STATE = {
   myProfileId: null,
@@ -59,7 +60,7 @@ function createId(prefix) {
 }
 
 /**
- * Resuelve el bloque macro (Vicerrectoría) desde el catálogo oficial SSOT.
+ * Resuelve el bloque macro desde el catálogo de organigrama configurado en el modelo SSOT.
  */
 export function resolveMacroUnidad(modelo, areaName) {
   const target = String(areaName || '').trim().toLowerCase();
@@ -68,7 +69,7 @@ export function resolveMacroUnidad(modelo, areaName) {
       return { macroId: grupo.macroId, macroNombre: grupo.macroNombre };
     }
   }
-  return { macroId: 'otra', macroNombre: 'Otra Unidad / Proyecto UCM' };
+  return { macroId: 'otra', macroNombre: 'Otra Unidad / Área' };
 }
 
 function normalizeArrayField(value) {
@@ -123,7 +124,7 @@ export function createStore(modelo) {
 
   function loadLocalState() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
       if (!raw) return structuredClone(EMPTY_STATE);
       const parsed = JSON.parse(raw);
       return {

@@ -96,7 +96,7 @@ async function bootstrap() {
           text: autor.nombre
         })
       : null,
-    el('span', { className: 'footer__program', text: 'Programa Nuestro Sello · SinergIA UCM' })
+    el('span', { className: 'footer__program', text: modelo.programa.subtitulo })
   ]);
 
   renderInto(appRoot, [headerNode, mainNode, footerNode, toastNode]);

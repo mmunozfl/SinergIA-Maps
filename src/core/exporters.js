@@ -25,8 +25,8 @@ function formatIcsUtc(date) {
  */
 export function buildTeamsChatUrl(targetProfile, myProfile) {
   const intro = myProfile
-    ? `Hola ${targetProfile.nombre}, soy ${myProfile.nombre} (${myProfile.area}). Vi tu entrevista en SinergIA UCM, ¿conversamos 15 min?`
-    : `Hola ${targetProfile.nombre}, vi tu perfil en SinergIA UCM. ¿Coordinamos 15 min para conocernos entre áreas?`;
+    ? `Hola ${targetProfile.nombre}, soy ${myProfile.nombre} (${myProfile.area}). Vi tu entrevista en SinergIA-Maps, ¿conversamos 15 min?`
+    : `Hola ${targetProfile.nombre}, vi tu perfil en SinergIA-Maps. ¿Coordinamos 15 min para conocernos entre áreas?`;
 
   const params = new URLSearchParams({
     users: targetProfile.correo,
@@ -44,10 +44,10 @@ export function buildTeamsMeetingUrl({ targetProfile, myProfile, startDateTimeLo
     throw new Error('Fecha u hora de reunión inválida.');
   }
   const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
-  const organizer = myProfile ? `${myProfile.nombre} (${myProfile.area})` : 'Colega UCM';
-  const subject = `SinergIA UCM: ${organizer} ↔ ${targetProfile.nombre}`;
+  const organizer = myProfile ? `${myProfile.nombre} (${myProfile.area})` : 'Colega';
+  const subject = `SinergIA-Maps: ${organizer} ↔ ${targetProfile.nombre}`;
   const content = [
-    `Micro-encuentro SinergIA UCM (${durationMinutes} min) para conocernos y compartir apoyo entre áreas.`,
+    `Micro-encuentro SinergIA-Maps (${durationMinutes} min) para conocernos y compartir apoyo entre áreas.`,
     targetProfile.detalleAyudo ? `Puede orientar en: ${targetProfile.detalleAyudo}` : '',
     targetProfile.interesesComunes?.length
       ? `Intereses para romper el hielo: ${targetProfile.interesesComunes.join(', ')}`
@@ -78,22 +78,22 @@ export function buildIcsInvite({ targetProfile, myProfile, startDateTimeLocal, d
   }
   const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
 
-  const organizer = myProfile ? `${myProfile.nombre} (${myProfile.area})` : 'Participante SinergIA UCM';
-  const summary = `SinergIA UCM: ${organizer} ↔ ${targetProfile.nombre} (${targetProfile.area})`;
+  const organizer = myProfile ? `${myProfile.nombre} (${myProfile.area})` : 'Participante SinergIA-Maps';
+  const summary = `SinergIA-Maps: ${organizer} ↔ ${targetProfile.nombre} (${targetProfile.area})`;
   const description = [
-    'Micro-encuentro de Sinergia Organizacional (Programa Nuestro Sello - UCM).',
+    'Micro-encuentro de Sinergia Organizacional (SinergIA-Maps).',
     `Propósito: Conocernos y compartir recursos entre unidades (${durationMinutes} min).`,
     targetProfile.detalleAyudo ? `\nPuede orientar en: ${targetProfile.detalleAyudo}` : '',
-    targetProfile.datoOnboarding ? `\nDato UCM compartido: ${targetProfile.datoOnboarding}` : ''
+    targetProfile.datoOnboarding ? `\nDato práctico compartido: ${targetProfile.datoOnboarding}` : ''
   ].join('\n');
 
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//SinergIA UCM//Networking Interareas//ES',
+    'PRODID:-//SinergIA-Maps//Networking Interareas//ES',
     'METHOD:REQUEST',
     'BEGIN:VEVENT',
-    `UID:${Date.now()}-${Math.random().toString(36).slice(2, 8)}@sinergia-ucm`,
+    `UID:${Date.now()}-${Math.random().toString(36).slice(2, 8)}@sinergia-maps`,
     `DTSTAMP:${formatIcsUtc(new Date())}`,
     `DTSTART:${formatIcsUtc(start)}`,
     `DTEND:${formatIcsUtc(end)}`,
@@ -164,7 +164,7 @@ export function downloadTextFile(filename, content, mimeType = 'text/plain;chars
 /**
  * Exporta un nodo SVG del mapa como archivo .svg listo para adjuntar en BUK o presentaciones.
  */
-export function exportSvgNode(svgElement, filename = 'mapa-sinergia-ucm.svg') {
+export function exportSvgNode(svgElement, filename = 'mapa-sinergia-maps.svg') {
   if (!svgElement) return;
   const clone = svgElement.cloneNode(true);
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');

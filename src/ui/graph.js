@@ -306,7 +306,7 @@ function renderOrganigramaOverlay(viewportGroup, nodes, edges, modelo, palette, 
   if (unplaced.length) {
     const unplacedGroups = new Map();
     for (const u of unplaced) {
-      const label = (u.area || 'Otras unidades UCM').trim();
+      const label = (u.area || 'Otras unidades').trim();
       if (!unplacedGroups.has(label)) unplacedGroups.set(label, []);
       unplacedGroups.get(label).push(u);
     }
@@ -413,7 +413,7 @@ export function renderSynergyDiagram({
         el('button', {
           type: 'button',
           className: mode === 'organigrama' ? 'segmented__btn is-active' : 'segmented__btn',
-          text: 'Sobre Organigrama UCM',
+          text: 'Sobre el Organigrama',
           onClick: () => onToggleMode('organigrama')
         })
       ])
@@ -465,7 +465,7 @@ export function renderSynergyDiagram({
     class: 'synergy-svg',
     viewBox: `0 0 ${width} ${height}`,
     role: 'img',
-    'aria-label': 'Mapa interactivo de conexiones SinergIA UCM'
+    'aria-label': 'Mapa interactivo de conexiones SinergIA-Maps'
   });
 
   const bgRect = svgEl('rect', { x: 0, y: 0, width, height, fill: '#ffffff', rx: 12 });

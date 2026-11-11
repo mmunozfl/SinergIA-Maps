@@ -1,9 +1,9 @@
 {
   "programa": {
     "nombreApp": "SinergIA-Maps",
-    "titulo": "Sinergia Organizacional UCM",
-    "subtitulo": "Entrevista y Mapa Vivo Interáreas",
-    "institucion": "Universidad Católica del Maule",
+    "titulo": "Sinergia Organizacional",
+    "subtitulo": "Red Viva de Colaboración Interáreas",
+    "institucion": "SinergIA-Maps",
     "autor": {
       "nombre": "Por Miguel Muñoz Flores",
       "correo": "mmunozf@ucm.cl"
@@ -13,7 +13,7 @@
     "guiaVacio": "Aún no hay entrevistas registradas. Completa la primera entrevista real en SinergIA o importa respuestas JSON de tus colegas para construir el mapa vivo.",
     "guiaBuk": {
       "titulo": "¿Cómo funciona esta sección con BUK?",
-      "descripcion": "Esta herramienta no se conecta automáticamente a la plataforma interna de BUK ni envía correos por sí sola. Sirve para ti y para el encargado de tu equipo: aquí registran los encuentros o entrevistas reales realizados y generan el texto listo para copiar o el PDF imprimible que luego adjuntan manualmente como evidencia en el portal BUK y en la revisión con Sintoniza."
+      "descripcion": "Esta herramienta no se conecta automáticamente a la plataforma interna de BUK ni envía correos por sí sola. Sirve para ti y para el encargado de tu equipo: aquí registran los encuentros o entrevistas reales realizados y generan el texto listo para copiar o el PDF imprimible que luego adjuntan manualmente como evidencia en el portal BUK o informe de colaboración."
     }
   },
   "storageConfig": {
@@ -135,10 +135,10 @@
     },
     {
       "macroId": "otra",
-      "macroNombre": "Otra Unidad / Equipo UCM",
+      "macroNombre": "Otra Unidad / Área",
       "esColumna": false,
       "unidades": [
-        "Otra unidad o equipo de trabajo UCM"
+        "Otra unidad o equipo de trabajo"
       ]
     }
   ],
@@ -197,7 +197,7 @@
     {
       "id": "visibilizarnos",
       "nombre": "Visibilizarnos (\"Te presento a...\")",
-      "descripcion": "Trabajadores de distintas áreas se conocen y destacan mutuamente su rol y aporte a la Universidad."
+      "descripcion": "Colaboradores de distintas áreas se conocen y destacan mutuamente su rol y aporte a la organización."
     },
     {
       "id": "cruzar-saberes",
@@ -206,8 +206,8 @@
     },
     {
       "id": "desafios-ucm",
-      "nombre": "Conectarnos con desafíos UCM",
-      "descripcion": "Contribuir conjuntamente desde distintos roles a desafíos institucionales vinculados al PDE."
+      "nombre": "Conectarnos con desafíos estratégicos",
+      "descripcion": "Contribuir conjuntamente desde distintos roles a desafíos transversales de la organización."
     },
     {
       "id": "onboarding",
@@ -245,8 +245,8 @@
     {
       "id": "identidad",
       "numero": 1,
-      "titulo": "Tu rol en la UCM",
-      "intro": "Hola, soy SinergIA. Partamos ubicando tu unidad o facultad dentro del Organigrama UCM para descubrir puentes con otras áreas.",
+      "titulo": "Tu rol en la organización",
+      "intro": "Hola, soy SinergIA. Partamos ubicando tu unidad o área dentro del Organigrama para descubrir puentes con otras áreas.",
       "campos": [
         {
           "id": "nombre",
@@ -257,28 +257,28 @@
         },
         {
           "id": "correo",
-          "label": "¿Cuál es tu correo institucional UCM?",
+          "label": "¿Cuál es tu correo institucional o laboral?",
           "type": "email",
           "required": true,
-          "placeholder": "nombre@ucm.cl"
+          "placeholder": "nombre@organizacion.cl"
         },
         {
           "id": "area",
-          "label": "¿A qué facultad, dirección o unidad perteneces?",
+          "label": "¿A qué área, dirección o unidad perteneces?",
           "type": "select-grouped",
           "source": "organigramaUCM",
           "required": true
         },
         {
           "id": "cargo",
-          "label": "¿Cuál es tu rol, escuela o cargo cotidiano?",
+          "label": "¿Cuál es tu rol, equipo o cargo cotidiano?",
           "type": "text",
           "required": true,
-          "placeholder": "Ej. Secretaria Escuela / Periodista / Analista"
+          "placeholder": "Ej. Coordinación / Especialista / Analista"
         },
         {
           "id": "antiguedad",
-          "label": "¿Cuánto tiempo llevas en la UCM?",
+          "label": "¿Cuánto tiempo llevas en la organización?",
           "type": "text",
           "required": false,
           "placeholder": "Ej. 3 años (o 6 meses)"
@@ -293,14 +293,14 @@
       "campos": [
         {
           "id": "queHace",
-          "label": "1. En simple, ¿qué haces en tu día a día y cómo aporta a la UCM?",
+          "label": "1. En simple, ¿qué haces en tu día a día y cómo aporta a tu organización?",
           "type": "textarea",
           "required": true,
           "placeholder": "Cuenta brevemente lo que pocas personas de otras áreas saben de tu labor..."
         },
         {
           "id": "temasAyudo",
-          "label": "2. ¿En qué temas podrías orientar o dar una mano a otro funcionario?",
+          "label": "2. ¿En qué temas podrías orientar o dar una mano a otro colega?",
           "type": "tags",
           "source": "temasTrabajo",
           "required": true
@@ -350,7 +350,7 @@
         },
         {
           "id": "datoOnboarding",
-          "label": "8. ¿Qué dato práctico sobre la UCM (servicios, campus o consejos) le darías a alguien nuevo?",
+          "label": "8. ¿Qué dato práctico sobre la organización (servicios, espacios o consejos) le darías a alguien nuevo?",
           "type": "textarea",
           "required": true,
           "placeholder": "Insumo útil para bienvenida / onboarding..."
@@ -426,7 +426,7 @@
       "label": "Responsable y correo para registro en BUK",
       "type": "text",
       "required": true,
-      "placeholder": "Nombre completo (correo@ucm.cl)"
+      "placeholder": "Nombre completo (correo@organizacion.cl)"
     }
   ],
   "navegacion": [
@@ -449,26 +449,26 @@
   ],
   "quienesSomos": {
     "titulo": "¿Quiénes somos y por qué existe SinergIA-Maps?",
-    "intro": "SinergIA-Maps nace dentro del Programa de Entrenamiento Sinergia Organizacional — Nuestro Sello (Sintoniza) de la Universidad Católica del Maule. Su propósito es hacer visible la red real de colaboración y apoyo mutuo entre profesores, investigadores y funcionarios de distintas facultades y direcciones, más allá del organigrama formal.",
+    "intro": "SinergIA-Maps nace para impulsar la colaboración orgánica y transversal dentro de organizaciones, universidades y empresas. Su propósito es hacer visible la red real de apoyo mutuo entre equipos, docentes, especialistas y colaboradores de distintas áreas, más allá del organigrama formal.",
     "pilares": [
       {
         "titulo": "1. Por qué te invitamos a responder",
-        "descripcion": "Muchas veces resolvemos tareas docentes, administrativas o de difusión sin saber qué colega de otra facultad o unidad domina exactamente ese proceso o busca articularse en un proyecto afín. Esta entrevista breve (~2 minutos) ayuda a encontrarnos rápido y sin burocracia."
+        "descripcion": "Muchas veces resolvemos tareas operativas, académicas o administrativas sin saber qué colega de otra área domina exactamente ese proceso o busca articularse en un proyecto afín. Esta entrevista breve (~3 minutos) ayuda a encontrarnos rápido y sin burocracia."
       },
       {
         "titulo": "2. Uso transparente de tus respuestas",
         "descripcion": "No es una evaluación de desempeño ni un sistema de control. Tampoco envía correos automáticos ni agenda reuniones por ti: solo visibiliza los temas en los que puedes orientar, lo que buscas aprender y un dato práctico de bienvenida para colegas nuevos."
       },
       {
-        "titulo": "3. Beneficio directo para tu facultad",
-        "descripcion": "Cada ficha respondida suma nodos y puentes reales al mapa vivo UCM, facilitando contactos por Teams, colaboración interdisciplinaria y apoyo oportuno entre estamentos."
+        "titulo": "3. Beneficio directo para tu equipo y área",
+        "descripcion": "Cada ficha respondida suma nodos y puentes reales al mapa vivo colaborativo, facilitando contactos por Teams, articulación interáreas y apoyo oportuno entre personas y equipos."
       }
     ],
     "garantiasTitulo": "Para que respondas con total tranquilidad",
     "garantias": [
-      "Toma alrededor de 2 minutos en 3 pasos simples.",
+      "Toma alrededor de 3 minutos en 3 pasos simples.",
       "Tú decides qué detalles e intereses compartir; los campos opcionales pueden quedar en blanco.",
-      "Tu aporte queda visible únicamente como puente colaborativo dentro de la comunidad SinergIA UCM."
+      "Tu aporte queda visible únicamente como puente colaborativo dentro de tu comunidad en SinergIA-Maps."
     ]
   },
   "duracionReunionMinutos": 15
