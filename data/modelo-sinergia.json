@@ -1,0 +1,298 @@
+{
+  "programa": {
+    "nombreApp": "SinergIA-Maps",
+    "titulo": "Sinergia Organizacional UCM",
+    "subtitulo": "Entrevista y Mapa Vivo Interáreas · Programa Nuestro Sello (Sintoniza)",
+    "institucion": "Universidad Católica del Maule",
+    "propositoAcordado": "Comunicar a las distintas áreas mediante un Networking guiado para descubrir cómo colaborarnos más allá del organigrama formal.",
+    "metaImplementacion": "Entrevistas breves dentro de la app, visualización de puentes interáreas y coordinación Teams + Calendar para evidencia en BUK.",
+    "guiaVacio": "Aún no hay entrevistas registradas. Completa la primera entrevista real en SinergIA o importa respuestas JSON de tus colegas para construir el mapa vivo.",
+    "guiaBuk": {
+      "titulo": "¿Cómo funciona esta sección con BUK?",
+      "descripcion": "Esta herramienta no se conecta automáticamente a la plataforma interna de BUK ni envía correos por sí sola. Sirve para ti y para el encargado de tu equipo: aquí registran los encuentros o entrevistas reales realizados y generan el texto listo para copiar o el PDF imprimible que luego adjuntan manualmente como evidencia en el portal BUK y en la revisión con Sintoniza."
+    }
+  },
+  "storageConfig": {
+    "mode": "hybrid",
+    "repoIndexUrl": "./cuestionarios-realizados/index.json",
+    "webhookUrl": "",
+    "supabaseUrl": "https://ooxvbhwtcqiimiymjkfb.supabase.co",
+    "supabaseAnonKey": "sb_publishable_0Xxsbp6MgH6mUMdYIDRiuQ_CncVbP6O",
+    "supabaseTable": "cuestionarios_sinergia"
+  },
+  "paletaOficial": {
+    "azulMarino": "#004a8a",
+    "celesteUcm": "#189fd7",
+    "azulMedio": "#186ea8",
+    "celesteSuave": "#dbf0f9",
+    "celesteBorde": "#c4e7f5",
+    "doradoSinergia": "#eab308"
+  },
+  "organigramaUCM": [
+    {
+      "macroId": "gobierno",
+      "macroNombre": "Rectoría y Gobierno Superior",
+      "esColumna": false,
+      "unidades": [
+        "Gran Cancillería",
+        "Honorable Consejo Superior",
+        "Contraloría",
+        "Pastoral Universitaria",
+        "Secretaría General",
+        "Dirección Jurídica",
+        "Dirección de Equidad de Género y Diversidad",
+        "Rectoría"
+      ]
+    },
+    {
+      "macroId": "academica",
+      "macroNombre": "Vicerrectoría Académica",
+      "esColumna": true,
+      "unidades": [
+        "Vicerrectoría Académica",
+        "Dirección General de Docencia",
+        "Dirección de Docencia de Pregrado",
+        "Dirección de Formación General",
+        "Dirección Editorial",
+        "Dirección de Sistema de Biblioteca"
+      ]
+    },
+    {
+      "macroId": "facultades",
+      "macroNombre": "Facultades",
+      "esColumna": true,
+      "unidades": [
+        "Facultad de Ciencias de la Educación",
+        "Facultad de Ciencias de la Salud",
+        "Facultad de Ciencias de la Ingeniería",
+        "Facultad de Ciencias Sociales y Económicas",
+        "Facultad de Ciencias Agrarias y Forestales",
+        "Facultad de Ciencias Básicas",
+        "Facultad de Ciencias Religiosas y Filosóficas",
+        "Facultad de Medicina",
+        "Centros de Investigación"
+      ]
+    },
+    {
+      "macroId": "vinculacion",
+      "macroNombre": "Vicerrectoría de Vinculación e Internacionalización",
+      "esColumna": true,
+      "unidades": [
+        "Vicerrectoría de Vinculación e Internacionalización",
+        "Dirección de Comunicaciones",
+        "Dirección de Relaciones Internacionales",
+        "Dirección de Extensión, Arte y Cultura",
+        "Dirección de Vinculación",
+        "Dirección de Educación Continua"
+      ]
+    },
+    {
+      "macroId": "prorectoria",
+      "macroNombre": "Pro Rectoría y Unidades Transversales",
+      "esColumna": true,
+      "unidades": [
+        "Pro Rectoría",
+        "Dirección Sede Curicó",
+        "Dirección General de Planificación y Desarrollo Universitario",
+        "Dirección General de Aseguramiento de la Calidad Institucional",
+        "Dirección de Evaluación y Estudios",
+        "Dirección de Acreditación",
+        "Dirección de Gestión Interna de la Calidad",
+        "Dirección General Estudiantil"
+      ]
+    },
+    {
+      "macroId": "finanzas",
+      "macroNombre": "Vicerrectoría de Administración y Finanzas",
+      "esColumna": true,
+      "unidades": [
+        "Vicerrectoría de Administración y Finanzas",
+        "Dirección General de Finanzas y Operaciones",
+        "Dirección de Gestión Financiera",
+        "Dirección de Tecnologías de la Información",
+        "Dirección de Administración e Infraestructura",
+        "Dirección de Gestión de Personas",
+        "Dirección de Desarrollo Institucional",
+        "Dirección de Admisión",
+        "Empresas Relacionadas"
+      ]
+    },
+    {
+      "macroId": "investigacion",
+      "macroNombre": "Vicerrectoría de Investigación y Postgrado",
+      "esColumna": true,
+      "unidades": [
+        "Vicerrectoría de Investigación y Postgrado",
+        "Dirección de Postgrado",
+        "Escuela de Graduados",
+        "Dirección de Investigación",
+        "Dirección de Innovación, Desarrollo y Transferencia Tecnológica"
+      ]
+    },
+    {
+      "macroId": "otra",
+      "macroNombre": "Otra Unidad / Equipo UCM",
+      "esColumna": false,
+      "unidades": [
+        "Otra unidad o equipo de trabajo UCM"
+      ]
+    }
+  ],
+  "conductas": [
+    {
+      "id": "c1",
+      "numero": 1,
+      "titulo": "Compartir información y recursos",
+      "descripcion": "Comparto información, recursos y aprendizajes para facilitar el trabajo conjunto, aportando al bien común y a los resultados institucionales."
+    },
+    {
+      "id": "c2",
+      "numero": 2,
+      "titulo": "Escucha activa y valoración",
+      "descripcion": "Escucho activamente y valoro los aportes de otras personas al tomar decisiones o resolver problemas."
+    },
+    {
+      "id": "c3",
+      "numero": 3,
+      "titulo": "Cooperación y apoyo mutuo",
+      "descripcion": "Ofrezco y solicito apoyo cuando es necesario, fomentando un ambiente de cooperación y confianza."
+    },
+    {
+      "id": "c4",
+      "numero": 4,
+      "titulo": "Comunicación cordial y directa",
+      "descripcion": "Mantengo una comunicación cordial y directa, que favorece el respeto, la cohesión y la colaboración en el equipo, promoviendo relaciones orientadas al bien común."
+    }
+  ],
+  "etapas": [
+    {
+      "id": "pre-sinergia",
+      "nombre": "Pre-sinergia",
+      "descripcion": "Se centran en su propia área, en sus recursos y limitaciones. Hay poca identificación con el grupo de colaboración interáreas.",
+      "ejemplo": "Desde nuestra área ya enviamos la información."
+    },
+    {
+      "id": "transicion",
+      "nombre": "Transición",
+      "descripcion": "Reconocen la tarea común y comienzan a comprometerse. Asumen responsabilidades para aportar al logro del objetivo.",
+      "ejemplo": "Acordemos quién hará qué y cuándo debemos avisarnos."
+    },
+    {
+      "id": "sinergia",
+      "nombre": "Sinergia",
+      "descripcion": "Comparten el propósito y trabajan juntos para lograr resultados. Expresan las diferencias y se sienten parte del grupo.",
+      "ejemplo": "Veamos cómo resolverlo juntos para que el semestre comience bien."
+    }
+  ],
+  "tiposAccion": [
+    {
+      "id": "conocernos",
+      "nombre": "Conocernos (\"Pasantía\" entre áreas)",
+      "descripcion": "Reunión breve para conocer qué hace otra unidad, sus principales desafíos y cómo su trabajo se conecta con el de otros."
+    },
+    {
+      "id": "visibilizarnos",
+      "nombre": "Visibilizarnos (\"Te presento a...\")",
+      "descripcion": "Trabajadores de distintas áreas se conocen y destacan mutuamente su rol y aporte a la Universidad."
+    },
+    {
+      "id": "cruzar-saberes",
+      "nombre": "Cruzar saberes (\"Otra mirada\")",
+      "descripcion": "Aportar conocimiento técnico desde otra unidad para construir conjuntamente una propuesta interdisciplinaria."
+    },
+    {
+      "id": "desafios-ucm",
+      "nombre": "Conectarnos con desafíos UCM",
+      "descripcion": "Contribuir conjuntamente desde distintos roles a desafíos institucionales vinculados al PDE."
+    },
+    {
+      "id": "onboarding",
+      "nombre": "Onboarding (Bienvenida)",
+      "descripcion": "Compartir insumos y datos clave de servicios internos y externos para facilitar la llegada de trabajadores nuevos."
+    }
+  ],
+  "etiquetasSugeridas": {
+    "temasTrabajo": [
+      "Difusión y comunicaciones",
+      "Soporte TI y sistemas",
+      "Gestión documental y decretos",
+      "Compras y finanzas",
+      "Gestión de personas y bienestar",
+      "Docencia y pregrado",
+      "Postgrado e investigación",
+      "Vinculación y eventos",
+      "Aseguramiento de calidad",
+      "Datos y reportería",
+      "Onboarding trabajadores nuevos",
+      "Atención estudiantil"
+    ],
+    "interesesHumanos": [
+      "Café y conversación",
+      "Deporte y vida sana",
+      "Lectura y aprendizaje",
+      "Innovación y tecnología",
+      "Cultura y arte",
+      "Voluntariado y comunidad",
+      "Cocina y datos locales",
+      "Sostenibilidad"
+    ]
+  },
+  "entrevistaPasos": [
+    {
+      "id": "identidad",
+      "numero": 1,
+      "titulo": "Tu rol en la UCM",
+      "intro": "Hola, soy SinergIA. Partamos ubicando tu unidad o facultad dentro del Organigrama UCM para descubrir puentes con otras áreas.",
+      "campos": [
+        { "id": "nombre", "label": "¿Cómo te llamas?", "type": "text", "required": true, "placeholder": "Nombre y apellido" },
+        { "id": "correo", "label": "¿Cuál es tu correo institucional UCM?", "type": "email", "required": true, "placeholder": "nombre@ucm.cl" },
+        { "id": "area", "label": "¿A qué facultad, dirección o unidad perteneces?", "type": "select-grouped", "source": "organigramaUCM", "required": true },
+        { "id": "cargo", "label": "¿Cuál es tu rol, escuela o cargo cotidiano?", "type": "text", "required": true, "placeholder": "Ej. Secretaria Escuela / Periodista / Analista" },
+        { "id": "antiguedad", "label": "¿Cuánto tiempo llevas en la UCM?", "type": "text", "required": false, "placeholder": "Ej. 3 años (o 6 meses)" }
+      ]
+    },
+    {
+      "id": "trabajoReal",
+      "numero": 2,
+      "titulo": "Lo que el organigrama no muestra",
+      "intro": "Más allá de las cajitas del organigrama, queremos entender qué haces realmente y dónde podemos ayudarnos entre áreas.",
+      "campos": [
+        { "id": "queHace", "label": "1. En simple, ¿qué haces en tu día a día y cómo aporta a la UCM?", "type": "textarea", "required": true, "placeholder": "Cuenta brevemente lo que pocas personas de otras áreas saben de tu labor..." },
+        { "id": "temasAyudo", "label": "2. ¿En qué temas podrías orientar o dar una mano a otro funcionario?", "type": "tags", "source": "temasTrabajo", "required": true },
+        { "id": "detalleAyudo", "label": "3. Detalla un recurso, trámite o conocimiento concreto que puedas compartir:", "type": "textarea", "required": true, "placeholder": "Ej. Cómo solicitar difusión interna, usar cierta herramienta o destrabar un proceso..." },
+        { "id": "temasBusco", "label": "4. ¿Con qué temas o áreas te gustaría coordinarte mejor o recibir orientación?", "type": "tags", "source": "temasTrabajo", "required": true },
+        { "id": "detalleBusco", "label": "5. ¿Qué desafío o cuello de botella te gustaría conversar con alguien de otra unidad?", "type": "textarea", "required": false, "placeholder": "Ej. Tiempos de respuesta, conocer a quién acudir para..." }
+      ]
+    },
+    {
+      "id": "puentesHumanos",
+      "numero": 3,
+      "titulo": "Puentes humanos y Sinergia",
+      "intro": "Para cerrar, una mirada humana (nada invasiva) y tu sello personal para conectar con colegas de otras direcciones.",
+      "campos": [
+        { "id": "conductaFortaleza", "label": "6. De las 4 Conductas Clave de Sinergia, ¿cuál sientes como tu mayor fortaleza?", "type": "select", "source": "conductas", "required": true },
+        { "id": "interesesComunes", "label": "7. Elige intereses no laborales para romper el hielo con otro colega:", "type": "tags", "source": "interesesHumanos", "required": false },
+        { "id": "datoOnboarding", "label": "8. ¿Qué dato práctico sobre la UCM (servicios, campus o consejos) le darías a alguien nuevo?", "type": "textarea", "required": true, "placeholder": "Insumo útil para bienvenida / onboarding..." },
+        { "id": "disponibilidad", "label": "Ventana sugerida para conversar 15 min por Teams (opcional):", "type": "text", "required": false, "placeholder": "Ej. Martes o jueves en la mañana" }
+      ]
+    }
+  ],
+  "camposEncuentro": [
+    { "id": "fecha", "label": "Fecha del encuentro", "type": "date", "required": true },
+    { "id": "participanteA", "label": "Tu nombre y área", "type": "text", "required": true, "placeholder": "Nombre — Unidad" },
+    { "id": "participanteB", "label": "Colega entrevistado/a y su área", "type": "text", "required": true, "placeholder": "Nombre — Unidad" },
+    { "id": "tipoAccion", "label": "Tipo de acción aplicada", "type": "select", "source": "tiposAccion", "required": true },
+    { "id": "conductaId", "label": "Conducta clave fortalecida", "type": "select", "source": "conductas", "required": true },
+    { "id": "etapaId", "label": "Etapa de sinergia observada", "type": "select", "source": "etapas", "required": true },
+    { "id": "aprendizaje", "label": "¿Qué descubrimos o aprendimos de la otra área?", "type": "textarea", "required": true, "placeholder": "Hallazgos concretos del intercambio..." },
+    { "id": "acuerdo", "label": "Acuerdo o colaboración concreta generada", "type": "textarea", "required": true, "placeholder": "Próximo paso acordado..." },
+    { "id": "responsableRegistro", "label": "Responsable y correo para registro en BUK", "type": "text", "required": true, "placeholder": "Nombre completo (correo@ucm.cl)" }
+  ],
+  "navegacion": [
+    { "id": "mapa", "label": "Mapa SinergIA" },
+    { "id": "entrevista", "label": "Responder Entrevista" },
+    { "id": "cruces", "label": "Cruces y Directorio" },
+    { "id": "evidencia", "label": "Evidencia BUK" }
+  ],
+  "duracionReunionMinutos": 15
+}

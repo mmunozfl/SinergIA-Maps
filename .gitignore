@@ -1,0 +1,6 @@
+# Excluir documentos internos del curso y archivos temporales de prueba
+*.docx
+docs/simulacion-15-ucm.json
+Thumbs.db
+.DS_Store
+
