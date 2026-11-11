@@ -4,6 +4,10 @@
     "titulo": "Sinergia Organizacional UCM",
     "subtitulo": "Entrevista y Mapa Vivo Interáreas · Programa Nuestro Sello (Sintoniza)",
     "institucion": "Universidad Católica del Maule",
+    "autor": {
+      "nombre": "Miguel Muñoz Flores",
+      "correo": "mmunozf@ucm.cl"
+    },
     "propositoAcordado": "Comunicar a las distintas áreas mediante un Networking guiado para descubrir cómo colaborarnos más allá del organigrama formal.",
     "metaImplementacion": "Entrevistas breves dentro de la app, visualización de puentes interáreas y coordinación Teams + Calendar para evidencia en BUK.",
     "guiaVacio": "Aún no hay entrevistas registradas. Completa la primera entrevista real en SinergIA o importa respuestas JSON de tus colegas para construir el mapa vivo.",

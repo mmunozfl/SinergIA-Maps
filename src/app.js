@@ -75,9 +75,18 @@ async function bootstrap() {
   const toastNode = el('div', { className: 'toast', role: 'status', 'aria-live': 'polite' });
   const headerNode = el('header', { className: 'topbar no-print' });
   const mainNode = el('main', { className: 'container main-content' });
+  const autor = modelo.programa.autor;
   const footerNode = el('footer', { className: 'footer no-print' }, [
-    el('span', { text: `${modelo.programa.institucion} · ${modelo.programa.titulo}` }),
-    el('span', { text: 'Programa Nuestro Sello · SinergIA UCM' })
+    el('span', { className: 'footer__org', text: `${modelo.programa.institucion} · ${modelo.programa.titulo}` }),
+    autor?.nombre
+      ? el('a', {
+          className: 'footer__author',
+          href: autor.correo ? `mailto:${autor.correo}` : '#',
+          title: autor.correo ? `Enviar correo a ${autor.nombre} (${autor.correo})` : autor.nombre,
+          text: autor.nombre
+        })
+      : null,
+    el('span', { className: 'footer__program', text: 'Programa Nuestro Sello · SinergIA UCM' })
   ]);
 
   renderInto(appRoot, [headerNode, mainNode, footerNode, toastNode]);
@@ -149,9 +158,7 @@ async function bootstrap() {
     history.replaceState(null, '', '#cruces');
   }
 
-  function renderHeader(state) {
-    const isSupabase = state.syncStatus === 'supabase';
-
+  function renderHeader() {
     renderInto(
       headerNode,
       el('div', { className: 'container topbar__inner' }, [
@@ -163,20 +170,6 @@ async function bootstrap() {
           ])
         ]),
         el('div', { className: 'topbar__right' }, [
-          isSupabase
-            ? el('div', { className: 'topbar__status' }, [
-                el('span', { className: 'sync-badge sync-badge--live', text: 'En vivo' }),
-                el('button', {
-                  type: 'button',
-                  className: 'btn btn--ghost btn--sm',
-                  text: '↻ Sincronizar',
-                  onClick: async () => {
-                    await store.syncFromSources();
-                    onToast('Mapa actualizado.');
-                  }
-                })
-              ])
-            : null,
           el(
             'nav',
             { className: 'nav-tabs', 'aria-label': 'Navegación principal' },
@@ -196,7 +189,7 @@ async function bootstrap() {
 
   function render() {
     const state = store.getState();
-    renderHeader(state);
+    renderHeader();
 
     const ctx = {
       state,
@@ -236,10 +229,7 @@ async function bootstrap() {
   });
 
   store.subscribe(() => {
-    if (isEditingActiveForm()) {
-      renderHeader(store.getState());
-      return;
-    }
+    if (isEditingActiveForm()) return;
     render();
   });
   handleImportFromHash();

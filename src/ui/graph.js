@@ -371,6 +371,7 @@ export function renderSynergyDiagram({
   mode = 'red',
   selectedId = null,
   myProfileId = null,
+  onNewInterview = null,
   onSelectNode,
   onToggleMode,
   onExportSvg
@@ -379,56 +380,77 @@ export function renderSynergyDiagram({
   const width = mode === 'organigrama' ? 1120 : 980;
   let height = mode === 'organigrama' ? 720 : 540;
   let zoom = 1;
+  const isEmptyRed = !network.nodes.length && mode === 'red';
+  let svg = null;
 
   const wrapper = el('div', { className: 'diagram-shell' });
+  const resetZoomBtn = el('button', {
+    type: 'button',
+    className: 'segmented__btn segmented__btn--zoom',
+    text: '100%',
+    title: 'Restablecer zoom',
+    disabled: isEmptyRed,
+    onClick: () => applyZoom(1)
+  });
 
   const toolbar = el('div', { className: 'diagram-toolbar' }, [
-    el('div', { className: 'diagram-modes' }, [
-      el('button', {
-        type: 'button',
-        className: mode === 'red' ? 'btn btn--primary btn--sm' : 'btn btn--ghost btn--sm',
-        text: 'Red de Sinergia Real',
-        onClick: () => onToggleMode('red')
-      }),
-      el('button', {
-        type: 'button',
-        className: mode === 'organigrama' ? 'btn btn--primary btn--sm' : 'btn btn--ghost btn--sm',
-        text: 'Sobre Organigrama UCM',
-        onClick: () => onToggleMode('organigrama')
-      })
+    el('div', { className: 'diagram-toolbar__actions' }, [
+      onNewInterview
+        ? el('button', {
+            type: 'button',
+            className: 'btn btn--cta btn--toolbar',
+            text: '+ Nueva Entrevista SinergIA',
+            onClick: onNewInterview
+          })
+        : null,
+      el('div', { className: 'segmented', role: 'group', 'aria-label': 'Modo de visualización' }, [
+        el('button', {
+          type: 'button',
+          className: mode === 'red' ? 'segmented__btn is-active' : 'segmented__btn',
+          text: 'Red de Sinergia Real',
+          onClick: () => onToggleMode('red')
+        }),
+        el('button', {
+          type: 'button',
+          className: mode === 'organigrama' ? 'segmented__btn is-active' : 'segmented__btn',
+          text: 'Sobre Organigrama UCM',
+          onClick: () => onToggleMode('organigrama')
+        })
+      ])
     ]),
     el('div', { className: 'diagram-tools' }, [
+      el('div', { className: 'segmented', role: 'group', 'aria-label': 'Zoom del mapa' }, [
+        el('button', {
+          type: 'button',
+          className: 'segmented__btn segmented__btn--icon',
+          text: '−',
+          title: 'Alejar',
+          disabled: isEmptyRed,
+          onClick: () => applyZoom(Math.max(0.7, zoom - 0.15))
+        }),
+        resetZoomBtn,
+        el('button', {
+          type: 'button',
+          className: 'segmented__btn segmented__btn--icon',
+          text: '+',
+          title: 'Acercar',
+          disabled: isEmptyRed,
+          onClick: () => applyZoom(Math.min(1.6, zoom + 0.15))
+        })
+      ]),
       el('button', {
         type: 'button',
-        className: 'btn btn--ghost btn--sm',
-        text: '−',
-        title: 'Alejar',
-        onClick: () => applyZoom(Math.max(0.7, zoom - 0.15))
-      }),
-      el('button', {
-        type: 'button',
-        className: 'btn btn--ghost btn--sm',
-        text: '100%',
-        title: 'Restablecer zoom',
-        onClick: () => applyZoom(1)
-      }),
-      el('button', {
-        type: 'button',
-        className: 'btn btn--ghost btn--sm',
-        text: '+',
-        title: 'Acercar',
-        onClick: () => applyZoom(Math.min(1.6, zoom + 0.15))
-      }),
-      el('button', {
-        type: 'button',
-        className: 'btn btn--secondary btn--sm',
+        className: 'btn btn--secondary btn--toolbar',
         text: 'Exportar SVG',
-        onClick: () => onExportSvg(svg)
+        disabled: isEmptyRed,
+        onClick: () => {
+          if (svg) onExportSvg(svg);
+        }
       })
     ])
   ]);
 
-  if (!network.nodes.length && mode === 'red') {
+  if (isEmptyRed) {
     wrapper.appendChild(toolbar);
     wrapper.appendChild(
       el('div', { className: 'diagram-empty' }, [
@@ -439,7 +461,7 @@ export function renderSynergyDiagram({
     return wrapper;
   }
 
-  const svg = svgEl('svg', {
+  svg = svgEl('svg', {
     class: 'synergy-svg',
     viewBox: `0 0 ${width} ${height}`,
     role: 'img',
@@ -453,7 +475,9 @@ export function renderSynergyDiagram({
   svg.appendChild(viewportGroup);
 
   function applyZoom(nextZoom) {
-    zoom = nextZoom;
+    zoom = Number(nextZoom.toFixed(2));
+    resetZoomBtn.textContent = `${Math.round(zoom * 100)}%`;
+    if (!svg) return;
     const dx = (width * (1 - zoom)) / 2;
     const dy = (height * (1 - zoom)) / 2;
     viewportGroup.setAttribute('transform', `translate(${dx}, ${dy}) scale(${zoom})`);
@@ -487,8 +511,8 @@ export function renderSynergyDiagram({
       })
     );
 
-    const edgesLayer = svgEl('g', { className: 'svg-edges' });
-    const nodesLayer = svgEl('g', { className: 'svg-nodes' });
+    const edgesLayer = svgEl('g', { class: 'svg-edges' });
+    const nodesLayer = svgEl('g', { class: 'svg-nodes' });
     viewportGroup.appendChild(edgesLayer);
     viewportGroup.appendChild(nodesLayer);
 

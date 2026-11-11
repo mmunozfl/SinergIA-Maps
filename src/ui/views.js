@@ -119,21 +119,15 @@ export function renderMapaView({ state, modelo, uiState, setUiState, onToast, on
     metricCard(metrics.totalEncounters, 'Actas para BUK')
   ]);
 
-  const diagramPanel = el('section', { className: 'card' }, [
-    el('div', { className: 'card__header' }, [
+  const diagramPanel = el('section', { className: 'card card--mapa' }, [
+    el('div', { className: 'card__header card__header--compact' }, [
       el('div', {}, [
         el('h2', { text: 'Mapa Interactivo de Sinergia vs. Organigrama UCM' }),
         el('p', {
           className: 'muted',
-          text: 'Alterna entre la Red de Sinergia y el Organigrama oficial UCM (mayo 2026) para ver dónde se ubica cada colega y sus cruces.'
+          text: 'Alterna entre la Red de Sinergia y el Organigrama oficial UCM (mayo 2026) para explorar conexiones y hacer clic en cualquier colega.'
         })
-      ]),
-      el('button', {
-        type: 'button',
-        className: 'btn btn--primary',
-        text: 'Nueva Entrevista SinergIA',
-        onClick: () => onNavigate('entrevista')
-      })
+      ])
     ]),
     renderSynergyDiagram({
       network,
@@ -141,6 +135,7 @@ export function renderMapaView({ state, modelo, uiState, setUiState, onToast, on
       mode: uiState.diagramMode || 'red',
       selectedId: uiState.selectedNodeId,
       myProfileId: state.myProfileId,
+      onNewInterview: () => onNavigate('entrevista'),
       onSelectNode: (nodeId) => {
         setUiState({ selectedNodeId: uiState.selectedNodeId === nodeId ? null : nodeId });
       },
@@ -161,7 +156,7 @@ export function renderMapaView({ state, modelo, uiState, setUiState, onToast, on
     el('aside', { className: 'mapa-aside' }, [inspectorContent])
   ]);
 
-  return el('div', { className: 'view-stack' }, [metricsBar, layout]);
+  return el('div', { className: 'view-stack' }, [layout, metricsBar]);
 }
 
 function metricCard(value, label) {

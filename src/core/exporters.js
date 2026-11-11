@@ -135,6 +135,11 @@ export function exportSvgNode(svgElement, filename = 'mapa-sinergia-ucm.svg') {
   if (!svgElement) return;
   const clone = svgElement.cloneNode(true);
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  const vb = (clone.getAttribute('viewBox') || '').trim().split(/\s+/);
+  if (vb.length === 4) {
+    if (!clone.getAttribute('width')) clone.setAttribute('width', vb[2]);
+    if (!clone.getAttribute('height')) clone.setAttribute('height', vb[3]);
+  }
   const serializer = new XMLSerializer();
   downloadTextFile(filename, serializer.serializeToString(clone), 'image/svg+xml;charset=utf-8');
 }
