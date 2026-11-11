@@ -5,7 +5,7 @@
     "subtitulo": "Entrevista y Mapa Vivo Interáreas · Programa Nuestro Sello (Sintoniza)",
     "institucion": "Universidad Católica del Maule",
     "autor": {
-      "nombre": "Miguel Muñoz Flores",
+      "nombre": "Por Miguel Muñoz Flores",
       "correo": "mmunozf@ucm.cl"
     },
     "propositoAcordado": "Comunicar a las distintas áreas mediante un Networking guiado para descubrir cómo colaborarnos más allá del organigrama formal.",
@@ -248,11 +248,41 @@
       "titulo": "Tu rol en la UCM",
       "intro": "Hola, soy SinergIA. Partamos ubicando tu unidad o facultad dentro del Organigrama UCM para descubrir puentes con otras áreas.",
       "campos": [
-        { "id": "nombre", "label": "¿Cómo te llamas?", "type": "text", "required": true, "placeholder": "Nombre y apellido" },
-        { "id": "correo", "label": "¿Cuál es tu correo institucional UCM?", "type": "email", "required": true, "placeholder": "nombre@ucm.cl" },
-        { "id": "area", "label": "¿A qué facultad, dirección o unidad perteneces?", "type": "select-grouped", "source": "organigramaUCM", "required": true },
-        { "id": "cargo", "label": "¿Cuál es tu rol, escuela o cargo cotidiano?", "type": "text", "required": true, "placeholder": "Ej. Secretaria Escuela / Periodista / Analista" },
-        { "id": "antiguedad", "label": "¿Cuánto tiempo llevas en la UCM?", "type": "text", "required": false, "placeholder": "Ej. 3 años (o 6 meses)" }
+        {
+          "id": "nombre",
+          "label": "¿Cómo te llamas?",
+          "type": "text",
+          "required": true,
+          "placeholder": "Nombre y apellido"
+        },
+        {
+          "id": "correo",
+          "label": "¿Cuál es tu correo institucional UCM?",
+          "type": "email",
+          "required": true,
+          "placeholder": "nombre@ucm.cl"
+        },
+        {
+          "id": "area",
+          "label": "¿A qué facultad, dirección o unidad perteneces?",
+          "type": "select-grouped",
+          "source": "organigramaUCM",
+          "required": true
+        },
+        {
+          "id": "cargo",
+          "label": "¿Cuál es tu rol, escuela o cargo cotidiano?",
+          "type": "text",
+          "required": true,
+          "placeholder": "Ej. Secretaria Escuela / Periodista / Analista"
+        },
+        {
+          "id": "antiguedad",
+          "label": "¿Cuánto tiempo llevas en la UCM?",
+          "type": "text",
+          "required": false,
+          "placeholder": "Ej. 3 años (o 6 meses)"
+        }
       ]
     },
     {
@@ -261,11 +291,41 @@
       "titulo": "Lo que el organigrama no muestra",
       "intro": "Más allá de las cajitas del organigrama, queremos entender qué haces realmente y dónde podemos ayudarnos entre áreas.",
       "campos": [
-        { "id": "queHace", "label": "1. En simple, ¿qué haces en tu día a día y cómo aporta a la UCM?", "type": "textarea", "required": true, "placeholder": "Cuenta brevemente lo que pocas personas de otras áreas saben de tu labor..." },
-        { "id": "temasAyudo", "label": "2. ¿En qué temas podrías orientar o dar una mano a otro funcionario?", "type": "tags", "source": "temasTrabajo", "required": true },
-        { "id": "detalleAyudo", "label": "3. Detalla un recurso, trámite o conocimiento concreto que puedas compartir:", "type": "textarea", "required": true, "placeholder": "Ej. Cómo solicitar difusión interna, usar cierta herramienta o destrabar un proceso..." },
-        { "id": "temasBusco", "label": "4. ¿Con qué temas o áreas te gustaría coordinarte mejor o recibir orientación?", "type": "tags", "source": "temasTrabajo", "required": true },
-        { "id": "detalleBusco", "label": "5. ¿Qué desafío o cuello de botella te gustaría conversar con alguien de otra unidad?", "type": "textarea", "required": false, "placeholder": "Ej. Tiempos de respuesta, conocer a quién acudir para..." }
+        {
+          "id": "queHace",
+          "label": "1. En simple, ¿qué haces en tu día a día y cómo aporta a la UCM?",
+          "type": "textarea",
+          "required": true,
+          "placeholder": "Cuenta brevemente lo que pocas personas de otras áreas saben de tu labor..."
+        },
+        {
+          "id": "temasAyudo",
+          "label": "2. ¿En qué temas podrías orientar o dar una mano a otro funcionario?",
+          "type": "tags",
+          "source": "temasTrabajo",
+          "required": true
+        },
+        {
+          "id": "detalleAyudo",
+          "label": "3. Detalla un recurso, trámite o conocimiento concreto que puedas compartir:",
+          "type": "textarea",
+          "required": true,
+          "placeholder": "Ej. Cómo solicitar difusión interna, usar cierta herramienta o destrabar un proceso..."
+        },
+        {
+          "id": "temasBusco",
+          "label": "4. ¿Con qué temas o áreas te gustaría coordinarte mejor o recibir orientación?",
+          "type": "tags",
+          "source": "temasTrabajo",
+          "required": true
+        },
+        {
+          "id": "detalleBusco",
+          "label": "5. ¿Qué desafío o cuello de botella te gustaría conversar con alguien de otra unidad?",
+          "type": "textarea",
+          "required": false,
+          "placeholder": "Ej. Tiempos de respuesta, conocer a quién acudir para..."
+        }
       ]
     },
     {
@@ -274,29 +334,118 @@
       "titulo": "Puentes humanos y Sinergia",
       "intro": "Para cerrar, una mirada humana (nada invasiva) y tu sello personal para conectar con colegas de otras direcciones.",
       "campos": [
-        { "id": "conductaFortaleza", "label": "6. De las 4 Conductas Clave de Sinergia, ¿cuál sientes como tu mayor fortaleza?", "type": "select", "source": "conductas", "required": true },
-        { "id": "interesesComunes", "label": "7. Elige intereses no laborales para romper el hielo con otro colega:", "type": "tags", "source": "interesesHumanos", "required": false },
-        { "id": "datoOnboarding", "label": "8. ¿Qué dato práctico sobre la UCM (servicios, campus o consejos) le darías a alguien nuevo?", "type": "textarea", "required": true, "placeholder": "Insumo útil para bienvenida / onboarding..." },
-        { "id": "disponibilidad", "label": "Ventana sugerida para conversar 15 min por Teams (opcional):", "type": "text", "required": false, "placeholder": "Ej. Martes o jueves en la mañana" }
+        {
+          "id": "conductaFortaleza",
+          "label": "6. De las 4 Conductas Clave de Sinergia, ¿cuál sientes como tu mayor fortaleza?",
+          "type": "select",
+          "source": "conductas",
+          "required": true
+        },
+        {
+          "id": "interesesComunes",
+          "label": "7. Elige intereses no laborales para romper el hielo con otro colega:",
+          "type": "tags",
+          "source": "interesesHumanos",
+          "required": false
+        },
+        {
+          "id": "datoOnboarding",
+          "label": "8. ¿Qué dato práctico sobre la UCM (servicios, campus o consejos) le darías a alguien nuevo?",
+          "type": "textarea",
+          "required": true,
+          "placeholder": "Insumo útil para bienvenida / onboarding..."
+        },
+        {
+          "id": "disponibilidad",
+          "label": "Ventana sugerida para conversar 15 min por Teams (opcional):",
+          "type": "text",
+          "required": false,
+          "placeholder": "Ej. Martes o jueves en la mañana"
+        }
       ]
     }
   ],
   "camposEncuentro": [
-    { "id": "fecha", "label": "Fecha del encuentro", "type": "date", "required": true },
-    { "id": "participanteA", "label": "Tu nombre y área", "type": "text", "required": true, "placeholder": "Nombre — Unidad" },
-    { "id": "participanteB", "label": "Colega entrevistado/a y su área", "type": "text", "required": true, "placeholder": "Nombre — Unidad" },
-    { "id": "tipoAccion", "label": "Tipo de acción aplicada", "type": "select", "source": "tiposAccion", "required": true },
-    { "id": "conductaId", "label": "Conducta clave fortalecida", "type": "select", "source": "conductas", "required": true },
-    { "id": "etapaId", "label": "Etapa de sinergia observada", "type": "select", "source": "etapas", "required": true },
-    { "id": "aprendizaje", "label": "¿Qué descubrimos o aprendimos de la otra área?", "type": "textarea", "required": true, "placeholder": "Hallazgos concretos del intercambio..." },
-    { "id": "acuerdo", "label": "Acuerdo o colaboración concreta generada", "type": "textarea", "required": true, "placeholder": "Próximo paso acordado..." },
-    { "id": "responsableRegistro", "label": "Responsable y correo para registro en BUK", "type": "text", "required": true, "placeholder": "Nombre completo (correo@ucm.cl)" }
+    {
+      "id": "fecha",
+      "label": "Fecha del encuentro",
+      "type": "date",
+      "required": true
+    },
+    {
+      "id": "participanteA",
+      "label": "Tu nombre y área",
+      "type": "text",
+      "required": true,
+      "placeholder": "Nombre — Unidad"
+    },
+    {
+      "id": "participanteB",
+      "label": "Colega entrevistado/a y su área",
+      "type": "text",
+      "required": true,
+      "placeholder": "Nombre — Unidad"
+    },
+    {
+      "id": "tipoAccion",
+      "label": "Tipo de acción aplicada",
+      "type": "select",
+      "source": "tiposAccion",
+      "required": true
+    },
+    {
+      "id": "conductaId",
+      "label": "Conducta clave fortalecida",
+      "type": "select",
+      "source": "conductas",
+      "required": true
+    },
+    {
+      "id": "etapaId",
+      "label": "Etapa de sinergia observada",
+      "type": "select",
+      "source": "etapas",
+      "required": true
+    },
+    {
+      "id": "aprendizaje",
+      "label": "¿Qué descubrimos o aprendimos de la otra área?",
+      "type": "textarea",
+      "required": true,
+      "placeholder": "Hallazgos concretos del intercambio..."
+    },
+    {
+      "id": "acuerdo",
+      "label": "Acuerdo o colaboración concreta generada",
+      "type": "textarea",
+      "required": true,
+      "placeholder": "Próximo paso acordado..."
+    },
+    {
+      "id": "responsableRegistro",
+      "label": "Responsable y correo para registro en BUK",
+      "type": "text",
+      "required": true,
+      "placeholder": "Nombre completo (correo@ucm.cl)"
+    }
   ],
   "navegacion": [
-    { "id": "mapa", "label": "Mapa SinergIA" },
-    { "id": "entrevista", "label": "Responder Entrevista" },
-    { "id": "cruces", "label": "Cruces y Directorio" },
-    { "id": "evidencia", "label": "Evidencia BUK" }
+    {
+      "id": "mapa",
+      "label": "Mapa SinergIA"
+    },
+    {
+      "id": "entrevista",
+      "label": "Responder Entrevista"
+    },
+    {
+      "id": "cruces",
+      "label": "Cruces y Directorio"
+    },
+    {
+      "id": "evidencia",
+      "label": "Evidencia BUK"
+    }
   ],
   "duracionReunionMinutos": 15
 }
