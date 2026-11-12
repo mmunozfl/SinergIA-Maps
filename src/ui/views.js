@@ -1,7 +1,7 @@
 import { el, buildFormFields, readFormValues } from './dom.js';
 import { renderSynergyDiagram } from './graph.js';
 import { validateBySchema, decodePayload, savePendingAction } from '../core/store.js';
-import { requestEmailOtp, verifyEmailOtp } from '../core/auth.js';
+import { requestEmailOtp } from '../core/auth.js';
 import {
   analyzePairSynergy,
   buildSynergyNetwork,
@@ -378,7 +378,7 @@ function renderInspectorCard({
             onClick: () =>
               onOpenAuthModal({
                 email: profile.correo,
-                reason: 'Te enviaremos un enlace o código a este correo para comprobar que eres tú y habilitar edición o eliminación.',
+                reason: 'Te enviaremos un enlace seguro a este correo para comprobar tu identidad y habilitar la edición o eliminación de tu ficha.',
                 afterVerify: { type: 'identify', profileId: profile.id }
               })
           })
@@ -552,7 +552,7 @@ function renderIdentitySidebarCard({
         onClick: () =>
           onOpenAuthModal?.({
             email: '',
-            reason: 'Ingresa el correo con el que respondiste para enviarte un enlace o código de verificación.',
+            reason: 'Confirma el correo con el que respondiste para enviarte un enlace seguro de acceso.',
             afterVerify: { type: 'identify' }
           })
       })
@@ -714,7 +714,7 @@ export function renderEntrevistaView({
               onClick: () =>
                 onOpenAuthModal?.({
                   email: '',
-                  reason: 'Ingresa el correo con el que respondiste para enviarte un enlace o código de verificación.',
+                  reason: 'Confirma el correo con el que respondiste para enviarte un enlace seguro de acceso.',
                   afterVerify: { type: 'identify' }
                 })
             })
@@ -901,7 +901,7 @@ export function renderEntrevistaView({
           reason:
             result.remoteErrorCode === 'DUPLICATE_EMAIL'
               ? `Ya existe una ficha registrada con ${mergedDraft.correo}. Confirma tu correo para actualizarla sin perder lo que escribiste.`
-              : 'Confirma tu correo con un enlace o código temporal para guardar estos cambios.',
+              : 'Confirma tu correo mediante el enlace seguro que enviaremos a tu bandeja para guardar estos cambios.',
           afterVerify: pendingPayload
         });
         return;
@@ -1667,36 +1667,25 @@ export function renderQuienesSomosView({ modelo, onNavigate }) {
 }
 
 /**
- * Modal de verificación de correo vía Supabase Auth (Magic Link + código OTP).
+ * Modal de verificación de correo vía enlace seguro de Supabase Auth (Magic Link).
  */
-export function renderAuthModal({ modalState, modelo, setModalPatch, onClose, onAuthenticated, onToast }) {
+export function renderAuthModal({ modalState, modelo, setModalPatch, onClose, onToast }) {
   if (!modalState) return null;
 
   const cfg = modelo.storageConfig || {};
-  const isOtpStep = modalState.step === 'otp';
-  const isBusy = Boolean(modalState.sending || modalState.verifying);
+  const isSentStep = modalState.step === 'sent';
+  const isBusy = Boolean(modalState.sending);
 
   const emailInput = el('input', {
     type: 'email',
     required: true,
     placeholder: 'tu.correo@organizacion.cl',
     value: modalState.email || '',
-    readOnly: isOtpStep,
-    className: isOtpStep ? 'is-readonly' : ''
+    readOnly: isSentStep,
+    className: isSentStep ? 'is-readonly' : ''
   });
 
-  const otpInput = isOtpStep
-    ? el('input', {
-        type: 'text',
-        inputmode: 'numeric',
-        autocomplete: 'one-time-code',
-        className: 'modal-otp-input',
-        placeholder: '123456',
-        maxlength: '12'
-      })
-    : null;
-
-  async function sendOtp(emailValue) {
+  async function sendMagicLink(emailValue) {
     const cleanEmail = String(emailValue || '').trim().toLowerCase();
     setModalPatch({ sending: true, error: '', email: cleanEmail });
     try {
@@ -1704,37 +1693,34 @@ export function renderAuthModal({ modalState, modelo, setModalPatch, onClose, on
         savePendingAction({ ...modalState.afterVerify, email: cleanEmail });
       }
       await requestEmailOtp(cfg, cleanEmail);
-      setModalPatch({ sending: false, step: 'otp', email: cleanEmail, error: '' });
-      onToast(`Enviamos el enlace/código de verificación a ${cleanEmail}.`);
+      setModalPatch({ sending: false, step: 'sent', email: cleanEmail, error: '' });
+      onToast(`Enviamos un enlace de inicio de sesión a ${cleanEmail}.`);
     } catch (err) {
       setModalPatch({ sending: false, error: err.message });
-    }
-  }
-
-  async function verifyCode() {
-    const code = otpInput?.value || '';
-    setModalPatch({ verifying: true, error: '' });
-    try {
-      const session = await verifyEmailOtp(cfg, modalState.email, code);
-      setModalPatch({ verifying: false });
-      await onAuthenticated(session);
-    } catch (err) {
-      setModalPatch({ verifying: false, error: err.message });
     }
   }
 
   const formEl = el('form', { className: 'modal-card__form', noValidate: true }, [
     el('div', { className: 'form-field' }, [
       el('label', { text: 'Correo institucional o laboral' }),
-      emailInput
+      emailInput,
+      !isSentStep
+        ? el('p', {
+            className: 'muted-xs',
+            text: 'Recibirás un enlace directo de inicio de sesión en tu bandeja, sin contraseñas ni códigos.'
+          })
+        : null
     ]),
-    isOtpStep
-      ? el('div', { className: 'form-field' }, [
-          el('label', { text: 'Código numérico (si aparece en tu correo)' }),
-          otpInput,
+    isSentStep
+      ? el('div', { className: 'modal-sent-box' }, [
+          el('strong', { text: 'Enlace enviado a tu correo' }),
+          el('p', {
+            className: 'muted-sm',
+            text: `Abre tu bandeja (${modalState.email}) y haz clic en el botón «Sign in» del correo para iniciar sesión y volver automáticamente con tu ficha reconocida.`
+          }),
           el('p', {
             className: 'muted-xs',
-            text: `También enviamos un enlace directo a ${modalState.email}: puedes hacer clic en el correo y volverás automáticamente con tu ficha reconocida.`
+            text: 'Si no aparece en tu bandeja principal tras un minuto, revisa Correo no deseado o Spam.'
           })
         ])
       : null,
@@ -1742,7 +1728,7 @@ export function renderAuthModal({ modalState, modelo, setModalPatch, onClose, on
       ? el('div', { className: 'form-errors' }, [el('p', { text: modalState.error })])
       : null,
     el('div', { className: 'modal-card__actions' }, [
-      isOtpStep
+      isSentStep
         ? el('button', {
             type: 'button',
             className: 'btn btn--ghost btn--sm',
@@ -1751,41 +1737,44 @@ export function renderAuthModal({ modalState, modelo, setModalPatch, onClose, on
             onClick: () => setModalPatch({ step: 'email', error: '' })
           })
         : null,
-      isOtpStep
+      isSentStep
         ? el('button', {
             type: 'button',
             className: 'btn btn--ghost btn--sm',
             disabled: isBusy,
-            text: modalState.sending ? 'Reenviando...' : 'Reenviar',
-            onClick: () => sendOtp(modalState.email)
+            text: modalState.sending ? 'Reenviando...' : 'Reenviar enlace',
+            onClick: () => sendMagicLink(modalState.email)
           })
         : null,
-      el('button', {
-        type: 'button',
-        className: 'btn btn--ghost',
-        disabled: isBusy,
-        text: 'Cancelar',
-        onClick: () => onClose()
-      }),
-      el('button', {
-        type: 'submit',
-        className: 'btn btn--primary',
-        disabled: isBusy,
-        text: isOtpStep
-          ? modalState.verifying
-            ? 'Verificando...'
-            : 'Verificar código'
-          : modalState.sending
-            ? 'Enviando...'
-            : 'Enviar enlace / código'
-      })
+      !isSentStep
+        ? el('button', {
+            type: 'button',
+            className: 'btn btn--ghost',
+            disabled: isBusy,
+            text: 'Cancelar',
+            onClick: () => onClose()
+          })
+        : null,
+      isSentStep
+        ? el('button', {
+            type: 'button',
+            className: 'btn btn--primary',
+            disabled: isBusy,
+            text: 'Entendido',
+            onClick: () => onClose({ keepPending: true })
+          })
+        : el('button', {
+            type: 'submit',
+            className: 'btn btn--primary',
+            disabled: isBusy,
+            text: modalState.sending ? 'Enviando enlace...' : 'Enviar enlace de acceso'
+          })
     ])
   ]);
 
   formEl.addEventListener('submit', (e) => {
     e.preventDefault();
-    if (isOtpStep) verifyCode();
-    else sendOtp(emailInput.value);
+    if (!isSentStep) sendMagicLink(emailInput.value);
   });
 
   const backdrop = el(
@@ -1795,27 +1784,27 @@ export function renderAuthModal({ modalState, modelo, setModalPatch, onClose, on
       role: 'dialog',
       'aria-modal': 'true',
       onClick: (e) => {
-        if (e.target === backdrop && !isBusy) onClose();
+        if (e.target === backdrop && !isBusy) onClose({ keepPending: isSentStep });
       }
     },
     [
       el('div', { className: 'modal-card' }, [
         el('div', { className: 'modal-card__head' }, [
-          el('h3', { text: isOtpStep ? 'Revisa tu correo' : 'Verifica tu correo' }),
+          el('h3', { text: isSentStep ? 'Revisa tu correo' : 'Verifica tu correo' }),
           el('button', {
             type: 'button',
             className: 'modal-card__close',
             'aria-label': 'Cerrar',
             disabled: isBusy,
             text: '×',
-            onClick: () => onClose()
+            onClick: () => onClose({ keepPending: isSentStep })
           })
         ]),
         el('p', {
           className: 'muted-sm',
           text:
             modalState.reason ||
-            'Confirma que eres la persona dueña de este correo para editar o retirar tu ficha del mapa.'
+            'Confirma tu correo para recibir un enlace seguro de acceso y gestionar tu ficha en la plataforma.'
         }),
         formEl
       ])

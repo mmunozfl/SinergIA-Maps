@@ -202,8 +202,8 @@ async function bootstrap() {
     renderModals();
   }
 
-  function closeAuthModal() {
-    consumePendingAction();
+  function closeAuthModal({ keepPending = false } = {}) {
+    if (!keepPending) consumePendingAction();
     uiState.authModal = null;
     renderModals();
   }
@@ -473,8 +473,8 @@ async function bootstrap() {
   window.addEventListener('popstate', syncRouteFromUrl);
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (uiState.authModal && !uiState.authModal.sending && !uiState.authModal.verifying) {
-      closeAuthModal();
+    if (uiState.authModal && !uiState.authModal.sending) {
+      closeAuthModal({ keepPending: uiState.authModal.step === 'sent' });
     } else if (uiState.deleteModal && !uiState.deleteModal.deleting) {
       uiState.deleteModal = null;
       renderModals();

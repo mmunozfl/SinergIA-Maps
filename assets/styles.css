@@ -1557,11 +1557,20 @@ input.is-readonly {
   margin-top: 0.25rem;
 }
 
-.modal-otp-input {
-  letter-spacing: 0.25em;
-  font-weight: 800;
-  font-size: 1.1rem;
-  text-align: center;
+.modal-sent-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: var(--radius-sm);
+  background: var(--ucm-celeste-soft);
+  border: 1px solid var(--ucm-celeste-border);
+  border-left: 4px solid var(--ucm-navy);
+}
+
+.modal-sent-box strong {
+  color: var(--ucm-navy);
+  font-size: 0.95rem;
 }
 
 @media (max-width: 960px) {

@@ -22,10 +22,10 @@ function normalizeErrorMessage(status, bodyText, fallback) {
   }
   const lower = raw.toLowerCase();
   if (status === 429 || lower.includes('rate limit') || lower.includes('security purposes')) {
-    return 'Por seguridad debes esperar unos segundos antes de pedir otro correo o código.';
+    return 'Por seguridad debes esperar unos segundos antes de solicitar otro enlace de acceso.';
   }
   if (lower.includes('expired') || lower.includes('invalid') || lower.includes('token has expired')) {
-    return 'El código o enlace es inválido o ya expiró. Solicita uno nuevo.';
+    return 'El enlace de acceso es inválido o ya expiró. Solicita uno nuevo.';
   }
   if (lower.includes('signups not allowed') || lower.includes('signup is disabled')) {
     return 'Falta permitir el acceso por correo en Supabase Auth (Allow new users to sign up).';
