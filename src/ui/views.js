@@ -970,9 +970,18 @@ function renderInterviewSuccess(profile, allProfiles, modelo, setUiState, onToas
     el('h2', { text: `¡Gracias, ${profile.nombre}!` }),
     el('p', {
       className: 'muted',
-      text: 'Tus respuestas ya aparecen en el Mapa SinergIA y en la vista sobre el Organigrama. Si luego quieres corregir o retirar tu ficha, podrás hacerlo verificando tu correo.'
+      text: 'Tus respuestas ya aparecen en el Mapa SinergIA y se desbloqueó la pestaña Conectar Áreas para ti. Si luego quieres corregir o retirar tu ficha, podrás hacerlo verificando tu correo.'
     }),
     el('div', { className: 'success-actions' }, [
+      el('button', {
+        type: 'button',
+        className: 'btn btn--cta',
+        text: 'Ir a Conectar Áreas',
+        onClick: () => {
+          setUiState({ interviewCompletedProfileId: null });
+          onNavigate('cruces');
+        }
+      }),
       el('button', {
         type: 'button',
         className: 'btn btn--primary',
@@ -1061,11 +1070,51 @@ export function renderCrucesView({
   onToast,
   onNavigate,
   onStartEncounter,
-  onEditProfile
+  onEditProfile,
+  onOpenAuthModal
 }) {
   const myProfile = state.profiles.find((p) => p.id === state.myProfileId) || null;
   const savedIds = Array.isArray(state.savedIds) ? state.savedIds : [];
   const canManageLocal = canManageLocalProfiles();
+  const hasSupabase = Boolean(modelo.storageConfig?.supabaseUrl && modelo.storageConfig?.supabaseAnonKey);
+
+  if (!myProfile) {
+    return el('div', { className: 'card deck-empty' }, [
+      el('span', { className: 'pill pill--gold', text: 'Sección protegida para participantes' }),
+      el('h3', { text: 'Responde la entrevista para desbloquear Conectar Áreas' }),
+      el('p', {
+        className: 'muted',
+        text: 'Para mantener una red justa y bien nutrida entre todas las áreas, primero completa tu entrevista (~3 min) indicando cómo puedes ayudar y qué apoyo buscas. Apenas termines se habilitará automáticamente Conectar Áreas.'
+      }),
+      el('div', { className: 'success-actions', style: 'justify-content: center;' }, [
+        el('button', {
+          type: 'button',
+          className: 'btn btn--primary',
+          text: 'Responder entrevista (~3 min)',
+          onClick: () => onNavigate('entrevista')
+        }),
+        hasSupabase && onOpenAuthModal
+          ? el('button', {
+              type: 'button',
+              className: 'btn btn--secondary',
+              text: 'Ya respondí: identificarme con mi correo',
+              onClick: () =>
+                onOpenAuthModal({
+                  email: '',
+                  reason: 'Confirma el correo con el que respondiste para desbloquear Conectar Áreas.',
+                  afterVerify: { type: 'identify' }
+                })
+            })
+          : null,
+        el('button', {
+          type: 'button',
+          className: 'btn btn--ghost',
+          text: 'Volver al Mapa SinergIA',
+          onClick: () => onNavigate('mapa')
+        })
+      ])
+    ]);
+  }
 
   const others = myProfile ? state.profiles.filter((p) => p.id !== myProfile.id) : state.profiles;
   const isSoloSelfPreview = Boolean(myProfile && state.profiles.length === 1);

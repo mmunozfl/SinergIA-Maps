@@ -107,6 +107,10 @@ async function bootstrap() {
 
   renderInto(appRoot, [headerNode, mainNode, footerNode, modalNode, toastNode]);
 
+  function hasCompletedSurvey(state) {
+    return Boolean(state?.myProfileId && (state.profiles || []).some((p) => p.id === state.myProfileId));
+  }
+
   function onToast(msg, isError = false) {
     showToast(toastNode, msg, isError);
   }
@@ -237,6 +241,10 @@ async function bootstrap() {
         uiState.editingProfileId = null;
         uiState.interviewDraft = null;
       }
+      if (uiState.route === 'cruces' && !hasCompletedSurvey(store.getState())) {
+        uiState.route = 'mapa';
+        history.replaceState(null, '', buildRouteUrl('mapa'));
+      }
       renderModals();
       render();
       onToast('Tu ficha fue eliminada del mapa SinergIA.');
@@ -261,6 +269,10 @@ async function bootstrap() {
     uiState.selectedNodeId = null;
     uiState.interviewMode = 'new';
     uiState.editingProfileId = null;
+    if (uiState.route === 'cruces' && !hasCompletedSurvey(store.getState())) {
+      uiState.route = 'mapa';
+      history.replaceState(null, '', buildRouteUrl('mapa'));
+    }
     onToast('Verificación cerrada en este navegador.');
     render();
   }
@@ -348,11 +360,14 @@ async function bootstrap() {
     } catch {
       onToast('No se pudo leer el enlace de ficha compartido.', true);
     }
-    uiState.route = 'cruces';
-    history.replaceState(null, '', buildRouteUrl('cruces'));
+    const nextRoute = hasCompletedSurvey(store.getState()) ? 'cruces' : 'mapa';
+    uiState.route = nextRoute;
+    history.replaceState(null, '', buildRouteUrl(nextRoute));
   }
 
-  function renderHeader() {
+  function renderHeader(state) {
+    const crucesUnlocked = hasCompletedSurvey(state);
+    const visibleNav = (modelo.navegacion || []).filter((item) => item.id !== 'cruces' || crucesUnlocked);
     renderInto(
       headerNode,
       el('div', { className: 'container topbar__inner' }, [
@@ -380,7 +395,7 @@ async function bootstrap() {
           el(
             'nav',
             { className: 'nav-tabs', 'aria-label': 'Navegación principal' },
-            (modelo.navegacion || []).map((item) =>
+            visibleNav.map((item) =>
               el('button', {
                 type: 'button',
                 className: uiState.route === item.id ? 'nav-tab is-active' : 'nav-tab',
@@ -423,7 +438,7 @@ async function bootstrap() {
 
   function render() {
     const state = store.getState();
-    renderHeader();
+    renderHeader(state);
 
     const ctx = {
       state,
