@@ -437,11 +437,11 @@
   "navegacion": [
     {
       "id": "mapa",
-      "label": "Mapa SinergIA"
+      "label": "Mapa"
     },
     {
       "id": "entrevista",
-      "label": "Responder Entrevista"
+      "label": "Entrevista"
     },
     {
       "id": "cruces",
