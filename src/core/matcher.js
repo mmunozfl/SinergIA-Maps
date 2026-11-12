@@ -255,3 +255,55 @@ export function collectCommunityTags(profiles, sourceKey, baseTags = []) {
   }
   return extras.sort((a, b) => a.localeCompare(b, 'es'));
 }
+
+/**
+ * Prepara el conjunto de fichas para la vista Conecta (filtros, orden de sinergia y paginación compartida).
+ */
+export function getCrucesDeckItems(state, modelo, uiState = {}) {
+  const myProfile = state?.profiles?.find((p) => p.id === state?.myProfileId) || null;
+  const savedIds = Array.isArray(state?.savedIds) ? state.savedIds : [];
+  const profiles = Array.isArray(state?.profiles) ? state.profiles : [];
+  const others = myProfile ? profiles.filter((p) => p.id !== myProfile.id) : profiles;
+  const isSoloSelfPreview = Boolean(myProfile && profiles.length === 1);
+  const basePool = isSoloSelfPreview ? profiles : others;
+
+  const filteredPool = basePool.filter((p) => {
+    if (uiState.deckFilterMacro && p.macroId !== uiState.deckFilterMacro) return false;
+    if (uiState.deckSavedOnly && !savedIds.includes(p.id)) return false;
+    return true;
+  });
+
+  const deckItems = filteredPool
+    .map((p) => ({
+      profile: p,
+      synergy: myProfile && p.id !== myProfile.id ? analyzePairSynergy(myProfile, p) : null
+    }))
+    .sort((a, b) => {
+      if (a.synergy && b.synergy && b.synergy.score !== a.synergy.score) {
+        return b.synergy.score - a.synergy.score;
+      }
+      return (
+        (b.profile.updatedAt || '').localeCompare(a.profile.updatedAt || '') ||
+        a.profile.nombre.localeCompare(b.profile.nombre)
+      );
+    });
+
+  const rawIndex = Math.max(0, uiState.deckIndex || 0);
+  const isCompletedDeck = deckItems.length > 0 && rawIndex >= deckItems.length;
+  const currentItem = !isCompletedDeck && deckItems.length ? deckItems[rawIndex] : null;
+  const currentSavedCount = savedIds.filter((id) => basePool.some((p) => p.id === id)).length;
+
+  return {
+    myProfile,
+    savedIds,
+    basePool,
+    filteredPool,
+    deckItems,
+    rawIndex,
+    isCompletedDeck,
+    currentItem,
+    current: currentItem?.profile || null,
+    currentSavedCount,
+    isSoloSelfPreview
+  };
+}

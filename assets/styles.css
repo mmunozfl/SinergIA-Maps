@@ -924,58 +924,102 @@ input:focus, select:focus, textarea:focus {
   min-width: 170px;
 }
 
+/* Topbar Conecta Header Strip */
+.topbar-conecta-strip {
+  background: rgba(0, 32, 64, 0.45);
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(8px);
+  padding: 0.32rem 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.topbar-conecta-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.topbar-conecta-group {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.topbar-conecta-select {
+  background: #ffffff;
+  color: var(--ucm-navy);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 999px;
+  padding: 0.2rem 0.75rem;
+  font-size: 0.79rem;
+  font-weight: 700;
+  outline: none;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.topbar-chip {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.25;
+}
+
+.topbar-chip:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.topbar-chip.is-active {
+  background: var(--ucm-gold);
+  color: #102a43;
+  border-color: var(--ucm-gold);
+  font-weight: 800;
+  box-shadow: 0 1px 6px rgba(246, 173, 85, 0.4);
+}
+
+.topbar-chip--nav {
+  background: rgba(255, 255, 255, 0.22);
+  font-size: 0.76rem;
+  padding: 0.18rem 0.55rem;
+}
+
+.topbar-counter-pill {
+  background: rgba(0, 0, 0, 0.25);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  padding: 0.18rem 0.65rem;
+  font-size: 0.77rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
 /* Conectar Áreas: tarjetas verticales 1-a-1 */
 .deck-shell {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
-  max-width: 720px;
-  margin: 0 auto;
+  gap: 0.45rem;
+  max-width: 680px;
+  margin: 0.25rem auto 1.5rem;
   width: 100%;
-}
-
-.deck-topbar {
-  width: 100%;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.7rem 0.9rem;
-}
-
-.deck-topbar__filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  flex: 1;
-}
-
-.deck-select {
-  width: auto !important;
-  max-width: 260px;
-  font-size: 0.82rem !important;
-  padding: 0.38rem 0.65rem !important;
-}
-
-.deck-topbar__progress {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--ucm-navy);
 }
 
 .deck-stage {
   width: 100%;
-  max-width: 440px;
+  max-width: 535px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.95rem;
+  gap: 0.65rem;
 }
 
 .deck-card {
@@ -983,8 +1027,8 @@ input:focus, select:focus, textarea:focus {
   width: 100%;
   background: #ffffff;
   border: 1px solid var(--ucm-celeste-border);
-  border-radius: 18px;
-  box-shadow: 0 14px 34px rgba(0, 74, 138, 0.11);
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(0, 74, 138, 0.10);
   overflow: hidden;
   touch-action: pan-y;
   user-select: none;
@@ -1037,22 +1081,22 @@ input:focus, select:focus, textarea:focus {
 .deck-card__hero {
   background: linear-gradient(135deg, var(--ucm-navy) 0%, var(--ucm-blue-mid) 62%, var(--ucm-celeste) 100%);
   color: #ffffff;
-  padding: 1.15rem 1.2rem 1rem;
+  padding: 0.82rem 1.15rem 0.72rem;
   display: flex;
   align-items: center;
-  gap: 0.9rem;
+  gap: 0.8rem;
 }
 
 .deck-avatar {
-  width: 56px;
-  height: 56px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.18);
   border: 2px solid rgba(255, 255, 255, 0.72);
   color: #ffffff;
   display: grid;
   place-items: center;
-  font-size: 1.15rem;
+  font-size: 1.08rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   flex-shrink: 0;
@@ -1067,14 +1111,14 @@ input:focus, select:focus, textarea:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.25rem;
 }
 
 .deck-pill {
   display: inline-block;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  padding: 0.14rem 0.5rem;
+  padding: 0.12rem 0.48rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.18);
   color: #ffffff;
@@ -1087,8 +1131,8 @@ input:focus, select:focus, textarea:focus {
 
 .deck-card__identity h3 {
   color: #ffffff;
-  font-size: 1.18rem;
-  margin: 0 0 0.15rem;
+  font-size: 1.15rem;
+  margin: 0 0 0.1rem;
   line-height: 1.2;
 }
 
@@ -1096,21 +1140,21 @@ input:focus, select:focus, textarea:focus {
   color: var(--ucm-celeste-soft);
   font-size: 0.82rem;
   margin: 0;
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
 .deck-card__body {
-  padding: 1rem 1.2rem 1.05rem;
+  padding: 0.75rem 1.15rem 0.8rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.52rem;
 }
 
 .deck-section {
   background: #f8fbfe;
   border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  padding: 0.65rem 0.8rem;
+  border-radius: 9px;
+  padding: 0.48rem 0.72rem;
 }
 
 .deck-section--icebreaker {
@@ -1120,49 +1164,49 @@ input:focus, select:focus, textarea:focus {
 
 .deck-section__title {
   display: block;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--ucm-blue-mid);
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.22rem;
 }
 
 .deck-section__detail {
-  margin: 0.2rem 0 0;
-  font-size: 0.83rem;
+  margin: 0.18rem 0 0;
+  font-size: 0.81rem;
   color: var(--text-main);
-  line-height: 1.4;
+  line-height: 1.35;
 }
 
 .deck-actions {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1.35rem;
-  padding: 0.25rem 0;
+  gap: 1.3rem;
+  padding: 0.15rem 0;
 }
 
 .deck-action-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.28rem;
+  gap: 0.22rem;
 }
 
 .deck-action-label {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   color: var(--text-muted);
 }
 
 .deck-btn {
-  width: 58px;
-  height: 58px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   border: 1px solid var(--border-subtle);
   background: #ffffff;
-  box-shadow: 0 8px 20px rgba(15, 41, 66, 0.11);
+  box-shadow: 0 6px 18px rgba(15, 41, 66, 0.10);
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -1171,7 +1215,7 @@ input:focus, select:focus, textarea:focus {
 
 .deck-btn:hover {
   transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 12px 24px rgba(15, 41, 66, 0.16);
+  box-shadow: 0 10px 22px rgba(15, 41, 66, 0.15);
 }
 
 .deck-btn:active {
@@ -1188,8 +1232,8 @@ input:focus, select:focus, textarea:focus {
 }
 
 .deck-btn--save {
-  width: 50px;
-  height: 50px;
+  width: 46px;
+  height: 46px;
   color: var(--ucm-celeste);
   border-color: var(--ucm-celeste-border);
 }
@@ -1215,8 +1259,8 @@ input:focus, select:focus, textarea:focus {
   z-index: 20;
   background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(8px);
-  border-radius: 18px;
-  padding: 1.25rem 1.15rem;
+  border-radius: 16px;
+  padding: 1rem 1.15rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;

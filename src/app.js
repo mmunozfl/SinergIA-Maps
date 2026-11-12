@@ -1,5 +1,6 @@
 import { createStore, decodePayload, consumePendingAction } from './core/store.js';
 import { consumeAuthCallback, getValidSession } from './core/auth.js';
+import { getCrucesDeckItems } from './core/matcher.js';
 import { el, renderInto } from './ui/dom.js';
 import {
   renderMapaView,
@@ -373,44 +374,130 @@ async function bootstrap() {
   function renderHeader(state) {
     const crucesUnlocked = hasCompletedSurvey(state);
     const visibleNav = (modelo.navegacion || []).filter((item) => item.id !== 'cruces' || crucesUnlocked);
+    const isCrucesRoute = uiState.route === 'cruces' && crucesUnlocked;
+
+    let conectaStrip = null;
+    if (isCrucesRoute) {
+      const {
+        deckItems,
+        rawIndex,
+        isCompletedDeck,
+        currentSavedCount
+      } = getCrucesDeckItems(state, modelo, uiState);
+
+      const macroSelect = el(
+        'select',
+        {
+          className: 'topbar-conecta-select',
+          'aria-label': 'Filtrar por área o vicerrectoría',
+          onChange: (e) => {
+            uiState.deckFilterMacro = e.target.value;
+            uiState.deckIndex = 0;
+            uiState.deckConnectedId = null;
+            render();
+          }
+        },
+        [
+          el('option', { value: '', text: 'Todas las áreas' }),
+          ...(modelo.organigramaUCM || []).map((g) =>
+            el('option', {
+              value: g.macroId,
+              text: g.macroNombre,
+              selected: uiState.deckFilterMacro === g.macroId
+            })
+          )
+        ]
+      );
+
+      const savedBtn = el('button', {
+        type: 'button',
+        className: uiState.deckSavedOnly ? 'topbar-chip is-active' : 'topbar-chip',
+        text: `⭐ Guardados (${currentSavedCount})`,
+        title: uiState.deckSavedOnly ? 'Ver todas las fichas' : 'Ver solo colegas guardados en favoritos',
+        onClick: () => {
+          uiState.deckSavedOnly = !uiState.deckSavedOnly;
+          uiState.deckIndex = 0;
+          uiState.deckConnectedId = null;
+          render();
+        }
+      });
+
+      const prevBtn =
+        rawIndex > 0 && deckItems.length
+          ? el('button', {
+              type: 'button',
+              className: 'topbar-chip topbar-chip--nav',
+              text: '← Anterior',
+              title: 'Volver a la ficha anterior',
+              onClick: () => {
+                uiState.deckIndex = Math.max(0, Math.min(rawIndex, deckItems.length) - 1);
+                uiState.deckConnectedId = null;
+                render();
+              }
+            })
+          : null;
+
+      const counterText = deckItems.length
+        ? isCompletedDeck
+          ? `${deckItems.length} de ${deckItems.length} · Fin`
+          : `${rawIndex + 1} de ${deckItems.length}`
+        : '0 fichas';
+
+      const counterBadge = el('span', {
+        className: 'topbar-counter-pill',
+        text: counterText,
+        title: 'Progreso de recorrido de fichas'
+      });
+
+      conectaStrip = el('div', { className: 'topbar-conecta-strip' }, [
+        el('div', { className: 'container topbar-conecta-inner' }, [
+          el('div', { className: 'topbar-conecta-group' }, [macroSelect, savedBtn]),
+          el('div', { className: 'topbar-conecta-group' }, [prevBtn, counterBadge])
+        ])
+      ]);
+    }
+
     renderInto(
       headerNode,
-      el('div', { className: 'container topbar__inner' }, [
-        el(
-          'a',
-          {
-            className: 'brand',
-            href: buildRouteUrl('mapa'),
-            title: `Volver a ${modelo.programa.nombreApp}`,
-            'aria-label': `Ir al inicio (${modelo.programa.nombreApp})`,
-            onClick: (e) => {
-              e.preventDefault();
-              navigate('mapa');
-            }
-          },
-          [
-            el('div', { className: 'brand__mark' }, createBrandIcon(modelo.programa.nombreApp)),
-            el('div', {}, [
-              el('h1', { className: 'brand__title', text: modelo.programa.nombreApp }),
-              el('p', { className: 'brand__sub', text: modelo.programa.subtitulo })
-            ])
-          ]
-        ),
-        el('div', { className: 'topbar__right' }, [
+      [
+        el('div', { className: 'container topbar__inner' }, [
           el(
-            'nav',
-            { className: 'nav-tabs', 'aria-label': 'Navegación principal' },
-            visibleNav.map((item) =>
-              el('button', {
-                type: 'button',
-                className: uiState.route === item.id ? 'nav-tab is-active' : 'nav-tab',
-                text: item.label,
-                onClick: () => navigate(item.id)
-              })
+            'a',
+            {
+              className: 'brand',
+              href: buildRouteUrl('mapa'),
+              title: `Volver a ${modelo.programa.nombreApp}`,
+              'aria-label': `Ir al inicio (${modelo.programa.nombreApp})`,
+              onClick: (e) => {
+                e.preventDefault();
+                navigate('mapa');
+              }
+            },
+            [
+              el('div', { className: 'brand__mark' }, createBrandIcon(modelo.programa.nombreApp)),
+              el('div', {}, [
+                el('h1', { className: 'brand__title', text: modelo.programa.nombreApp }),
+                el('p', { className: 'brand__sub', text: modelo.programa.subtitulo })
+              ])
+            ]
+          ),
+          el('div', { className: 'topbar__right' }, [
+            el(
+              'nav',
+              { className: 'nav-tabs', 'aria-label': 'Navegación principal' },
+              visibleNav.map((item) =>
+                el('button', {
+                  type: 'button',
+                  className: uiState.route === item.id ? 'nav-tab is-active' : 'nav-tab',
+                  text: item.label,
+                  onClick: () => navigate(item.id)
+                })
+              )
             )
-          )
-        ])
-      ])
+          ])
+        ]),
+        conectaStrip
+      ].filter(Boolean)
     );
   }
 

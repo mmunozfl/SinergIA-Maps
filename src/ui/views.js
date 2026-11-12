@@ -7,7 +7,8 @@ import {
   buildSynergyNetwork,
   suggestMatches,
   computeMetrics,
-  collectCommunityTags
+  collectCommunityTags,
+  getCrucesDeckItems
 } from '../core/matcher.js';
 import {
   buildTeamsChatUrl,
@@ -750,25 +751,21 @@ function renderIdentitySidebarCard({
     ]);
   }
 
-  if (!hasSupabase) return null;
-
   return el('div', { className: 'card identity-card identity-card--prompt' }, [
-    el('strong', { className: 'identity-card__name', text: '¿Ya respondiste la encuesta?' }),
+    el('div', { className: 'identity-card__badge' }, [
+      el('span', { className: 'pill pill--gold', text: 'Súmate a la red' })
+    ]),
+    el('strong', { className: 'identity-card__name', text: '¿Aún no estás en el mapa?' }),
     el('p', {
       className: 'muted-xs',
-      text: 'Identifícate con tu correo si abriste desde otro equipo o quieres editar o borrar tu ficha.'
+      text: 'Completa la entrevista (~3 min) para visibilizar en qué puedes orientar y conectar con colegas de toda la universidad.'
     }),
     el('div', { className: 'identity-card__actions' }, [
       el('button', {
         type: 'button',
-        className: 'btn btn--ghost btn--sm',
-        text: 'Identificarme con mi correo',
-        onClick: () =>
-          onOpenAuthModal?.({
-            email: '',
-            reason: 'Confirma el correo con el que respondiste para enviarte un enlace seguro de acceso.',
-            afterVerify: { type: 'identify' }
-          })
+        className: 'btn btn--primary btn--sm',
+        text: 'Responder Entrevista (~3 min)',
+        onClick: () => onNavigate?.('entrevista')
       })
     ])
   ]);
@@ -913,28 +910,7 @@ export function renderEntrevistaView({
             })
           ])
         ])
-      : !state.authUser?.email && hasSupabase
-        ? el('div', { className: 'identity-banner identity-banner--muted' }, [
-            el('div', {}, [
-              el('strong', { text: '¿Ya respondiste antes?' }),
-              el('p', {
-                className: 'muted-xs',
-                text: 'Si ingresaste desde otro equipo o quieres editar o borrar tus datos, verifícate con tu correo.'
-              })
-            ]),
-            el('button', {
-              type: 'button',
-              className: 'btn btn--ghost btn--sm',
-              text: 'Identificarme con mi correo',
-              onClick: () =>
-                onOpenAuthModal?.({
-                  email: '',
-                  reason: 'Confirma el correo con el que respondiste para enviarte un enlace seguro de acceso.',
-                  afterVerify: { type: 'identify' }
-                })
-            })
-          ])
-        : null
+      : null
     : null;
 
   const timerBadge = isEditing
@@ -1281,7 +1257,6 @@ export function renderCrucesView({
   onOpenAuthModal
 }) {
   const myProfile = state.profiles.find((p) => p.id === state.myProfileId) || null;
-  const savedIds = Array.isArray(state.savedIds) ? state.savedIds : [];
   const canManageLocal = canManageLocalProfiles();
   const hasSupabase = Boolean(modelo.storageConfig?.supabaseUrl && modelo.storageConfig?.supabaseAnonKey);
 
@@ -1323,88 +1298,18 @@ export function renderCrucesView({
     ]);
   }
 
-  const others = myProfile ? state.profiles.filter((p) => p.id !== myProfile.id) : state.profiles;
-  const isSoloSelfPreview = Boolean(myProfile && state.profiles.length === 1);
-  const basePool = isSoloSelfPreview ? state.profiles : others;
-
-  const filteredPool = basePool.filter((p) => {
-    if (uiState.deckFilterMacro && p.macroId !== uiState.deckFilterMacro) return false;
-    if (uiState.deckSavedOnly && !savedIds.includes(p.id)) return false;
-    return true;
-  });
-
-  const deckItems = filteredPool
-    .map((p) => ({
-      profile: p,
-      synergy: myProfile && p.id !== myProfile.id ? analyzePairSynergy(myProfile, p) : null
-    }))
-    .sort((a, b) => {
-      if (a.synergy && b.synergy && b.synergy.score !== a.synergy.score) {
-        return b.synergy.score - a.synergy.score;
-      }
-      return (b.profile.updatedAt || '').localeCompare(a.profile.updatedAt || '') ||
-        a.profile.nombre.localeCompare(b.profile.nombre);
-    });
-
-  const rawIndex = Math.max(0, uiState.deckIndex || 0);
-  const isCompletedDeck = deckItems.length > 0 && rawIndex >= deckItems.length;
-  const currentItem = !isCompletedDeck && deckItems.length ? deckItems[rawIndex] : null;
-  const current = currentItem?.profile || null;
-  const currentSavedCount = savedIds.filter((id) => basePool.some((p) => p.id === id)).length;
-
-  const macroSelect = el(
-    'select',
-    {
-      className: 'deck-select',
-      'aria-label': 'Filtrar por macrounidad o área',
-      onChange: (e) =>
-        setUiState({ deckFilterMacro: e.target.value, deckIndex: 0, deckConnectedId: null })
-    },
-    [
-      el('option', { value: '', text: 'Todas las áreas' }),
-      ...(modelo.organigramaUCM || []).map((g) =>
-        el('option', {
-          value: g.macroId,
-          text: g.macroNombre,
-          selected: uiState.deckFilterMacro === g.macroId
-        })
-      )
-    ]
-  );
-
-  const savedFilterBtn = el('button', {
-    type: 'button',
-    className: uiState.deckSavedOnly ? 'btn btn--secondary btn--sm' : 'btn btn--ghost btn--sm',
-    text: `Guardados (${currentSavedCount})`,
-    onClick: () =>
-      setUiState({
-        deckSavedOnly: !uiState.deckSavedOnly,
-        deckIndex: 0,
-        deckConnectedId: null
-      })
-  });
-
-  const topbar = el('div', { className: 'card deck-topbar' }, [
-    el('div', { className: 'deck-topbar__filters' }, [macroSelect, savedFilterBtn]),
-    el('div', { className: 'deck-topbar__progress' }, [
-      rawIndex > 0 && deckItems.length
-        ? el('button', {
-            type: 'button',
-            className: 'btn btn--ghost btn--sm',
-            text: '← Anterior',
-            onClick: () =>
-              setUiState({ deckIndex: Math.max(0, Math.min(rawIndex, deckItems.length) - 1), deckConnectedId: null })
-          })
-        : null,
-      el('span', {
-        text: deckItems.length
-          ? isCompletedDeck
-            ? `${deckItems.length} de ${deckItems.length}`
-            : `${rawIndex + 1} de ${deckItems.length}`
-          : '0 fichas'
-      })
-    ])
-  ]);
+  const {
+    savedIds,
+    basePool,
+    filteredPool,
+    deckItems,
+    rawIndex,
+    isCompletedDeck,
+    currentItem,
+    current,
+    currentSavedCount,
+    isSoloSelfPreview
+  } = getCrucesDeckItems(state, modelo, uiState);
 
   const stage = el('div', { className: 'deck-stage' });
 
@@ -1746,7 +1651,7 @@ export function renderCrucesView({
     ]);
   }
 
-  return el('div', { className: 'deck-shell' }, [topbar, stage, adminPanel]);
+  return el('div', { className: 'deck-shell' }, [stage, adminPanel]);
 }
 
 /**
