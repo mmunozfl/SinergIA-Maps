@@ -9,15 +9,30 @@ import {
 const STORAGE_KEY = 'sinergia_maps_state_v2';
 const LEGACY_STORAGE_KEY = 'sinergia_ucm_state_v2';
 const PENDING_ACTION_KEY = 'sinergia_maps_pending_action_v1';
+const CLIENT_ID_KEY = 'sinergia_maps_client_id_v1';
 
 const EMPTY_STATE = {
   myProfileId: null,
   profiles: [],
   encounters: [],
+  connections: [],
   savedIds: [],
   authUser: null,
   syncStatus: 'local'
 };
+
+function getOrCreateClientId() {
+  if (typeof localStorage === 'undefined') return 'anon_session';
+  try {
+    const existing = localStorage.getItem(CLIENT_ID_KEY);
+    if (existing) return existing;
+    const generated = `anon_${Math.random().toString(36).slice(2, 10)}`;
+    localStorage.setItem(CLIENT_ID_KEY, generated);
+    return generated;
+  } catch {
+    return 'anon_session';
+  }
+}
 
 export function savePendingAction(action) {
   if (typeof localStorage === 'undefined') return;
@@ -185,6 +200,7 @@ function parseSupabaseError(status, bodyText, fallback) {
  */
 export function createStore(modelo) {
   let state = loadLocalState();
+  let connectionsTableMissing = false;
   const listeners = new Set();
   reconcileMyProfile();
 
@@ -198,6 +214,7 @@ export function createStore(modelo) {
         myProfileId: typeof parsed.myProfileId === 'string' ? parsed.myProfileId : null,
         profiles: Array.isArray(parsed.profiles) ? parsed.profiles : [],
         encounters: Array.isArray(parsed.encounters) ? parsed.encounters : [],
+        connections: Array.isArray(parsed.connections) ? parsed.connections : [],
         savedIds: Array.isArray(parsed.savedIds) ? parsed.savedIds : [],
         authUser,
         syncStatus: 'local'
@@ -223,6 +240,7 @@ export function createStore(modelo) {
       myProfileId: state.myProfileId,
       profiles: state.profiles,
       encounters: state.encounters,
+      connections: state.connections,
       savedIds: state.savedIds
     }));
     notify();
@@ -426,6 +444,35 @@ export function createStore(modelo) {
           state.syncStatus = 'supabase';
           changed = wasLocal || state.myProfileId !== prevMyId || JSON.stringify(state.profiles) !== prevSnapshot;
         }
+        if (!connectionsTableMissing) {
+          const connTable = cfg.supabaseConnectionsTable || 'conexiones_sinergia';
+          const connEndpoint = `${cfg.supabaseUrl.replace(/\/$/, '')}/rest/v1/${connTable}?select=id,from_key,to_id,channel,created_at`;
+          const connRes = await fetch(connEndpoint, {
+            headers: buildSupabaseHeaders(cfg.supabaseAnonKey)
+          });
+          if (connRes.status === 404) {
+            connectionsTableMissing = true;
+          } else if (connRes.ok) {
+            const connRows = await connRes.json();
+            const mergedMap = new Map((state.connections || []).map((c) => [c.id, c]));
+            for (const row of Array.isArray(connRows) ? connRows : []) {
+              if (!row?.from_key || !row?.to_id) continue;
+              const id = row.id || `${row.from_key}__${row.to_id}`;
+              mergedMap.set(id, {
+                id,
+                fromKey: row.from_key,
+                toId: row.to_id,
+                channel: row.channel || 'teams_chat',
+                createdAt: row.created_at || new Date().toISOString()
+              });
+            }
+            const nextConnections = [...mergedMap.values()];
+            if (JSON.stringify(nextConnections) !== JSON.stringify(state.connections)) {
+              state.connections = nextConnections;
+              changed = true;
+            }
+          }
+        }
       } catch {
         if (state.syncStatus !== 'local-fallback') {
           state.syncStatus = 'local-fallback';
@@ -580,6 +627,57 @@ export function createStore(modelo) {
     return { importedProfiles, importedEncounters };
   }
 
+  async function recordTeamsConnection(targetProfile, channel = 'teams_chat') {
+    if (!targetProfile?.id) return null;
+    const fromKey = getMyProfile()?.id || getOrCreateClientId();
+    if (targetProfile.id === fromKey) return null;
+
+    const id = `${fromKey}__${targetProfile.id}`;
+    const list = Array.isArray(state.connections) ? state.connections : [];
+    const existing = list.find((c) => c.id === id);
+    if (existing) return existing;
+
+    const entry = {
+      id,
+      fromKey,
+      toId: targetProfile.id,
+      channel,
+      createdAt: new Date().toISOString()
+    };
+
+    state.connections = [entry, ...list];
+    persistLocal();
+
+    const cfg = modelo.storageConfig || {};
+    if (cfg.supabaseUrl && cfg.supabaseAnonKey && !connectionsTableMissing) {
+      try {
+        const connTable = cfg.supabaseConnectionsTable || 'conexiones_sinergia';
+        const endpoint = `${cfg.supabaseUrl.replace(/\/$/, '')}/rest/v1/${connTable}`;
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: buildSupabaseHeaders(cfg.supabaseAnonKey, {
+            'Content-Type': 'application/json',
+            Prefer: 'return=minimal'
+          }),
+          body: JSON.stringify({
+            id: entry.id,
+            from_key: entry.fromKey,
+            to_id: entry.toId,
+            channel: entry.channel,
+            created_at: entry.createdAt
+          })
+        });
+        if (res.status === 404) {
+          connectionsTableMissing = true;
+        }
+      } catch {
+        // Sin conexión temporal; la conexión ya quedó contabilizada localmente.
+      }
+    }
+
+    return entry;
+  }
+
   function clearAll() {
     state = structuredClone(EMPTY_STATE);
     persistLocal();
@@ -608,6 +706,7 @@ export function createStore(modelo) {
     deleteMyProfile,
     addEncounter,
     removeEncounter,
+    recordTeamsConnection,
     importBundle,
     toggleSavedProfile,
     clearAll

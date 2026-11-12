@@ -134,7 +134,14 @@ function formatClock(totalSeconds) {
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
-function createActionButtonsForColleague(colleague, myProfile, modelo, onToast, onStartEncounter) {
+function createActionButtonsForColleague(
+  colleague,
+  myProfile,
+  modelo,
+  onToast,
+  onStartEncounter,
+  onRecordConnection
+) {
   const dateInput = el('input', {
     type: 'datetime-local',
     className: 'mini-datetime',
@@ -156,7 +163,10 @@ function createActionButtonsForColleague(colleague, myProfile, modelo, onToast, 
       className: 'btn btn--primary btn--sm',
       href: buildTeamsChatUrl(colleague, myProfile),
       target: '_blank',
-      rel: 'noopener noreferrer'
+      rel: 'noopener noreferrer',
+      onClick: () => {
+        setTimeout(() => onRecordConnection?.(colleague, 'teams_chat'), 0);
+      }
     },
     [
       svgIcon(
@@ -179,6 +189,7 @@ function createActionButtonsForColleague(colleague, myProfile, modelo, onToast, 
       onClick: () => {
         try {
           btnTeamsMeeting.setAttribute('href', buildMeetingHref());
+          setTimeout(() => onRecordConnection?.(colleague, 'teams_meeting'), 0);
           onToast('Teams abierto con la invitación de 15 min lista para enviar.');
         } catch (err) {
           onToast(err.message, true);
@@ -284,7 +295,7 @@ export function renderMapaView({
     metricCard(metrics.totalAreas, 'Unidades / Facultades'),
     metricCard(metrics.crossMacroEdges, 'Puentes inter-áreas'),
     metricCard(formatDuration(metrics.avgDurationSeconds), 'Tiempo prom. entrevista'),
-    metricCard(metrics.totalEncounters, 'Actas para BUK')
+    metricCard(metrics.connectedPeopleCount, 'Personas conectadas')
   ]);
 
   const diagramPanel = el('section', { className: 'card card--mapa' }, [
@@ -469,7 +480,9 @@ function renderInspectorCard({
           )
         ])
       : null,
-    createActionButtonsForColleague(profile, myProfile, modelo, onToast, onStartEncounter)
+    createActionButtonsForColleague(profile, myProfile, modelo, onToast, onStartEncounter, (colleague, channel) =>
+      store.recordTeamsConnection(colleague, channel)
+    )
   ]);
 }
 
@@ -664,7 +677,8 @@ export function renderEntrevistaView({
         onToast,
         onNavigate,
         onStartEncounter,
-        onEditProfile
+        onEditProfile,
+        store
       );
     }
   }
@@ -958,7 +972,17 @@ export function renderEntrevistaView({
   return el('div', { className: 'card interview-card' }, [identityBanner, topMeta, stepper, bubble, formEl]);
 }
 
-function renderInterviewSuccess(profile, allProfiles, modelo, setUiState, onToast, onNavigate, onStartEncounter, onEditProfile) {
+function renderInterviewSuccess(
+  profile,
+  allProfiles,
+  modelo,
+  setUiState,
+  onToast,
+  onNavigate,
+  onStartEncounter,
+  onEditProfile,
+  store
+) {
   const matches = suggestMatches(profile, allProfiles).filter((m) => m.analysis.score > 0).slice(0, 4);
   const shareUrl = buildShareUrl(profile);
 
@@ -1046,7 +1070,9 @@ function renderInterviewSuccess(profile, allProfiles, modelo, setUiState, onToas
                 el('strong', { text: m.profile.nombre }),
                 el('p', { className: 'muted-sm', text: `${m.profile.cargo} · ${m.profile.area}` }),
                 el('p', { className: 'match-reasons', text: m.analysis.reasons.join(' · ') }),
-                createActionButtonsForColleague(m.profile, profile, modelo, onToast, onStartEncounter)
+                createActionButtonsForColleague(m.profile, profile, modelo, onToast, onStartEncounter, (colleague, ch) =>
+                  store?.recordTeamsConnection?.(colleague, ch)
+                )
               ])
             )
           )
@@ -1387,7 +1413,9 @@ export function renderCrucesView({
             className: 'muted-sm',
             text: `Tema para romper el hielo: "${iceTopic}". Inicia un chat directo o envía invitación oficial de 15 min por Teams:`
           }),
-          createActionButtonsForColleague(current, myProfile, modelo, onToast, onStartEncounter),
+          createActionButtonsForColleague(current, myProfile, modelo, onToast, onStartEncounter, (colleague, channel) =>
+            store.recordTeamsConnection(colleague, channel)
+          ),
           el('div', { className: 'deck-connect-panel__footer' }, [
             el('button', {
               type: 'button',

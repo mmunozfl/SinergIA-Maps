@@ -52,6 +52,31 @@ create policy "Eliminacion por correo verificado"
   for delete
   to authenticated
   using (lower(correo) = lower(coalesce(auth.jwt() ->> 'email', '')));
+
+-- Tabla opcional para contar globalmente "Personas conectadas" al abrir Chat/Reunión en MS Teams
+create table if not exists public.conexiones_sinergia (
+  id text primary key,
+  from_key text not null,
+  to_id text not null,
+  channel text not null default 'teams_chat',
+  created_at timestamptz not null default now()
+);
+
+alter table public.conexiones_sinergia enable row level security;
+
+drop policy if exists "Lectura publica conexiones" on public.conexiones_sinergia;
+create policy "Lectura publica conexiones"
+  on public.conexiones_sinergia
+  for select
+  to anon, authenticated
+  using (true);
+
+drop policy if exists "Insercion publica conexiones" on public.conexiones_sinergia;
+create policy "Insercion publica conexiones"
+  on public.conexiones_sinergia
+  for insert
+  to anon, authenticated
+  with check (true);
 ```
 
 3. Configura **Authentication → URL Configuration**:

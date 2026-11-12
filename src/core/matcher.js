@@ -177,6 +177,13 @@ export function computeMetrics(state, network) {
     ? Math.round(timed.reduce((acc, v) => acc + v, 0) / timed.length)
     : null;
 
+  const connections = Array.isArray(state.connections) ? state.connections : [];
+  const connectedPeople = new Set(
+    connections
+      .filter((c) => c && c.fromKey && c.toId && c.fromKey !== c.toId)
+      .map((c) => c.fromKey)
+  );
+
   return {
     totalProfiles: state.profiles.length,
     totalAreas: areas.size,
@@ -184,6 +191,7 @@ export function computeMetrics(state, network) {
     totalConnections: network.insights.totalEdges,
     crossMacroEdges: network.insights.crossMacroEdges,
     totalEncounters: state.encounters.length,
+    connectedPeopleCount: connectedPeople.size,
     avgDurationSeconds
   };
 }
