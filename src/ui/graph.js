@@ -62,6 +62,34 @@ function drawSvgTextLines(parent, lines, { x, centerY, fill, fontSize = 9.5, fon
   });
 }
 
+function createDefs(palette) {
+  const defs = svgEl('defs');
+
+  function addMarker(id, fill, isStart = false) {
+    const marker = svgEl('marker', {
+      id,
+      viewBox: '0 0 10 10',
+      refX: isStart ? '2.5' : '7.5',
+      refY: '5',
+      markerWidth: '6.5',
+      markerHeight: '6.5',
+      orient: 'auto'
+    });
+    const d = isStart ? 'M 8 1.5 L 1.5 5 L 8 8.5 z' : 'M 1.5 1.5 L 8 5 L 1.5 8.5 z';
+    marker.appendChild(svgEl('path', { d, fill }));
+    defs.appendChild(marker);
+  }
+
+  addMarker('arrow-gold-end', palette.doradoSinergia, false);
+  addMarker('arrow-gold-start', palette.doradoSinergia, true);
+  addMarker('arrow-celeste-end', palette.celesteUcm, false);
+  addMarker('arrow-celeste-start', palette.celesteUcm, true);
+  addMarker('arrow-navy-end', palette.azulMedio, false);
+  addMarker('arrow-navy-start', palette.azulMedio, true);
+
+  return defs;
+}
+
 function edgeColor(edge, palette) {
   if (edge.kind === 'ayuda_mutua') return palette.doradoSinergia;
   if (edge.kind === 'saber_compartido') return palette.celesteUcm;
@@ -102,7 +130,19 @@ function computePositionsRed(nodes, width, height) {
  * Construye las cajas y líneas jerárquicas del Organigrama UCM oficial (desde SSOT modelo.organigramaUCM)
  * y ubica los nodos de funcionarios entrevistados directamente sobre su unidad exacta.
  */
-function renderOrganigramaOverlay(viewportGroup, nodes, edges, modelo, palette, selectedId, myProfileId, onSelectNode) {
+function renderOrganigramaOverlay(
+  viewportGroup,
+  nodes,
+  edges,
+  modelo,
+  palette,
+  selectedIds = [],
+  myProfileId = null,
+  onSelectNode = null
+) {
+  const selectedSet = new Set(
+    Array.isArray(selectedIds) ? selectedIds : selectedIds ? [selectedIds] : []
+  );
   const width = 1120;
   const lineStroke = palette.celesteUcm;
 
@@ -255,7 +295,7 @@ function renderOrganigramaOverlay(viewportGroup, nodes, edges, modelo, palette, 
         userPositions.set(user.id, { x: anchorX, y: anchorY });
         maxBottomY = Math.max(maxBottomY, chipY + chipH + 16);
 
-        const isSelected = user.id === selectedId;
+        const isSelected = selectedSet.has(user.id);
         const isMine = user.id === myProfileId;
 
         const ug = svgEl('g', {
@@ -336,27 +376,69 @@ function renderOrganigramaOverlay(viewportGroup, nodes, edges, modelo, palette, 
     });
   }
 
-  // Arcos de SinergIA trazados por encima del Organigrama UCM
+  // Arcos de SinergIA trazados por encima del Organigrama UCM con desfase milimétrico y flechas
   for (const edge of edges) {
     const p1 = userPositions.get(edge.sourceId);
     const p2 = userPositions.get(edge.targetId);
     if (!p1 || !p2) continue;
 
-    const midX = (p1.x + p2.x) / 2;
-    const midY = Math.min(p1.y, p2.y) - 54;
-    const pathD = `M ${p1.x} ${p1.y} Q ${midX} ${midY} ${p2.x} ${p2.y}`;
-    const isSelectedEdge = selectedId && (edge.sourceId === selectedId || edge.targetId === selectedId);
+    const subList = Array.isArray(edge.subEdges) && edge.subEdges.length
+      ? edge.subEdges
+      : [{ kind: edge.kind, direction: 'both', reasons: edge.reasons }];
 
-    const path = svgEl('path', {
-      d: pathD,
-      fill: 'none',
-      stroke: edgeColor(edge, palette),
-      'stroke-width': isSelectedEdge ? 3.2 : 2.2,
-      'stroke-dasharray': edge.kind === 'afinidades' ? '5 4' : 'none',
-      opacity: selectedId ? (isSelectedEdge ? 0.96 : 0.2) : 0.85
+    const K = subList.length;
+    subList.forEach((sub, k) => {
+      let offsetPx = 0;
+      if (K === 2) offsetPx = k === 0 ? -9 : 9;
+      else if (K >= 3) offsetPx = (k - (K - 1) / 2) * 11;
+
+      const midX = (p1.x + p2.x) / 2;
+      const midY = Math.min(p1.y, p2.y) - 52 + offsetPx;
+      const startX = p1.x + (p2.x > p1.x ? 20 : -20);
+      const startY = p1.y - 10;
+      const endX = p2.x + (p1.x > p2.x ? 20 : -20);
+      const endY = p2.y - 10;
+      const pathD = `M ${startX} ${startY} Q ${midX} ${midY} ${endX} ${endY}`;
+
+      const isSelectedEdge =
+        selectedSet.size === 2
+          ? selectedSet.has(edge.sourceId) && selectedSet.has(edge.targetId)
+          : selectedSet.size === 1
+            ? selectedSet.has(edge.sourceId) || selectedSet.has(edge.targetId)
+            : false;
+
+      const stroke =
+        sub.kind === 'ayuda_mutua'
+          ? palette.doradoSinergia
+          : sub.kind === 'saber_compartido'
+            ? palette.celesteUcm
+            : palette.azulMedio;
+
+      const pathAttrs = {
+        d: pathD,
+        fill: 'none',
+        stroke,
+        'stroke-width': isSelectedEdge ? 3.4 : sub.kind === 'ayuda_mutua' ? 2.5 : 1.8,
+        'stroke-dasharray': sub.kind === 'afinidades' ? '5 4' : 'none',
+        opacity: selectedSet.size ? (isSelectedEdge ? 0.98 : 0.14) : 0.85
+      };
+
+      if (sub.kind === 'ayuda_mutua') {
+        if (sub.direction === 'a_to_b') pathAttrs['marker-end'] = 'url(#arrow-gold-end)';
+        else if (sub.direction === 'b_to_a') pathAttrs['marker-start'] = 'url(#arrow-gold-start)';
+        else {
+          pathAttrs['marker-start'] = 'url(#arrow-gold-start)';
+          pathAttrs['marker-end'] = 'url(#arrow-gold-end)';
+        }
+      } else if (sub.kind === 'saber_compartido') {
+        pathAttrs['marker-start'] = 'url(#arrow-celeste-start)';
+        pathAttrs['marker-end'] = 'url(#arrow-celeste-end)';
+      }
+
+      const path = svgEl('path', pathAttrs);
+      path.appendChild(svgEl('title', {}, (sub.reasons || edge.reasons).join(' · ')));
+      edgesLayer.appendChild(path);
     });
-    path.appendChild(svgEl('title', {}, edge.reasons.join(' · ')));
-    edgesLayer.appendChild(path);
   }
 
   return maxBottomY + 28;
@@ -370,12 +452,19 @@ export function renderSynergyDiagram({
   modelo,
   mode = 'red',
   selectedId = null,
+  selectedIds = [],
   myProfileId = null,
   onNewInterview = null,
   onSelectNode,
   onToggleMode,
   onExportSvg
 }) {
+  const activeSelectedIds = Array.isArray(selectedIds) && selectedIds.length
+    ? selectedIds
+    : selectedId
+      ? [selectedId]
+      : [];
+  const selectedSet = new Set(activeSelectedIds);
   const palette = modelo.paletaOficial;
   const width = mode === 'organigrama' ? 1120 : 980;
   let height = mode === 'organigrama' ? 720 : 540;
@@ -470,6 +559,7 @@ export function renderSynergyDiagram({
 
   const bgRect = svgEl('rect', { x: 0, y: 0, width, height, fill: '#ffffff', rx: 12 });
   svg.appendChild(bgRect);
+  svg.appendChild(createDefs(palette));
 
   const viewportGroup = svgEl('g', { id: 'viewport' });
   svg.appendChild(viewportGroup);
@@ -490,7 +580,7 @@ export function renderSynergyDiagram({
       network.edges,
       modelo,
       palette,
-      selectedId,
+      activeSelectedIds,
       myProfileId,
       onSelectNode
     );
@@ -522,22 +612,89 @@ export function renderSynergyDiagram({
       const p2 = positions.get(edge.targetId);
       if (!p1 || !p2) continue;
 
-      const midX = (p1.x + p2.x) / 2;
-      const midY = (p1.y + p2.y) / 2 - 24;
-      const pathD = `M ${p1.x} ${p1.y} Q ${midX} ${midY} ${p2.x} ${p2.y}`;
-      const isSelectedEdge = selectedId && (edge.sourceId === selectedId || edge.targetId === selectedId);
+      const subList = Array.isArray(edge.subEdges) && edge.subEdges.length
+        ? edge.subEdges
+        : [{ kind: edge.kind, direction: 'both', reasons: edge.reasons }];
 
-      const path = svgEl('path', {
-        d: pathD,
-        fill: 'none',
-        stroke: edgeColor(edge, palette),
-        'stroke-width': isSelectedEdge ? 3 : edge.kind === 'ayuda_mutua' ? 2.2 : 1.5,
-        'stroke-dasharray': edge.kind === 'afinidades' ? '5 4' : 'none',
-        opacity: selectedId ? (isSelectedEdge ? 0.95 : 0.16) : 0.68
+      const K = subList.length;
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      let nx = -dy / dist;
+      let ny = dx / dist;
+
+      const midChordX = (p1.x + p2.x) / 2;
+      const midChordY = (p1.y + p2.y) / 2;
+      const toCenterX = midChordX - width / 2;
+      const toCenterY = midChordY - height / 2;
+      if (nx * toCenterX + ny * toCenterY < 0) {
+        nx = -nx;
+        ny = -ny;
+      }
+      const baseArch = Math.min(54, Math.max(18, dist * 0.12));
+
+      subList.forEach((sub, k) => {
+        let offsetPx = 0;
+        if (K === 2) offsetPx = k === 0 ? -9 : 9;
+        else if (K >= 3) offsetPx = (k - (K - 1) / 2) * 11;
+
+        const cpx = midChordX + nx * (baseArch + offsetPx);
+        const cpy = midChordY + ny * (baseArch + offsetPx);
+
+        const v1x = cpx - p1.x;
+        const v1y = cpy - p1.y;
+        const v1Len = Math.hypot(v1x, v1y) || 1;
+        const startX = p1.x + (v1x / v1Len) * 34;
+        const startY = p1.y + (v1y / v1Len) * 34;
+
+        const v2x = p2.x - cpx;
+        const v2y = p2.y - cpy;
+        const v2Len = Math.hypot(v2x, v2y) || 1;
+        const endX = p2.x - (v2x / v2Len) * 34;
+        const endY = p2.y - (v2y / v2Len) * 34;
+
+        const pathD = `M ${startX} ${startY} Q ${cpx} ${cpy} ${endX} ${endY}`;
+
+        const isSelectedEdge =
+          selectedSet.size === 2
+            ? selectedSet.has(edge.sourceId) && selectedSet.has(edge.targetId)
+            : selectedSet.size === 1
+              ? selectedSet.has(edge.sourceId) || selectedSet.has(edge.targetId)
+              : false;
+
+        const stroke =
+          sub.kind === 'ayuda_mutua'
+            ? palette.doradoSinergia
+            : sub.kind === 'saber_compartido'
+              ? palette.celesteUcm
+              : palette.azulMedio;
+
+        const pathAttrs = {
+          d: pathD,
+          fill: 'none',
+          stroke,
+          'stroke-width': isSelectedEdge ? 3.4 : sub.kind === 'ayuda_mutua' ? 2.5 : 1.8,
+          'stroke-dasharray': sub.kind === 'afinidades' ? '5 4' : 'none',
+          opacity: selectedSet.size ? (isSelectedEdge ? 0.98 : 0.14) : 0.72
+        };
+
+        if (sub.kind === 'ayuda_mutua') {
+          if (sub.direction === 'a_to_b') pathAttrs['marker-end'] = 'url(#arrow-gold-end)';
+          else if (sub.direction === 'b_to_a') pathAttrs['marker-start'] = 'url(#arrow-gold-start)';
+          else {
+            pathAttrs['marker-start'] = 'url(#arrow-gold-start)';
+            pathAttrs['marker-end'] = 'url(#arrow-gold-end)';
+          }
+        } else if (sub.kind === 'saber_compartido') {
+          pathAttrs['marker-start'] = 'url(#arrow-celeste-start)';
+          pathAttrs['marker-end'] = 'url(#arrow-celeste-end)';
+        }
+
+        const path = svgEl('path', pathAttrs);
+        path.appendChild(svgEl('title', {}, (sub.reasons || edge.reasons).join(' · ')));
+        edgesLayer.appendChild(path);
+        edgeNodes.push({ edge, sub, path });
       });
-      path.appendChild(svgEl('title', {}, edge.reasons.join(' · ')));
-      edgesLayer.appendChild(path);
-      edgeNodes.push({ edge, path });
     }
 
     const cardW = 156;
@@ -546,7 +703,7 @@ export function renderSynergyDiagram({
     for (const node of network.nodes) {
       const pos = positions.get(node.id);
       if (!pos) continue;
-      const isSelected = node.id === selectedId;
+      const isSelected = selectedSet.has(node.id);
       const isMine = node.id === myProfileId;
 
       const g = svgEl('g', {
@@ -596,18 +753,18 @@ export function renderSynergyDiagram({
 
       g.addEventListener('click', () => onSelectNode(node.id));
       g.addEventListener('mouseenter', () => {
-        if (selectedId) return;
+        if (selectedSet.size > 0) return;
         for (const item of edgeNodes) {
           const hit = item.edge.sourceId === node.id || item.edge.targetId === node.id;
-          item.path.setAttribute('opacity', hit ? '1' : '0.15');
-          if (hit) item.path.setAttribute('stroke-width', '3');
+          item.path.setAttribute('opacity', hit ? '1' : '0.12');
+          if (hit) item.path.setAttribute('stroke-width', '3.2');
         }
       });
       g.addEventListener('mouseleave', () => {
-        if (selectedId) return;
+        if (selectedSet.size > 0) return;
         for (const item of edgeNodes) {
-          item.path.setAttribute('opacity', '0.68');
-          item.path.setAttribute('stroke-width', item.edge.kind === 'ayuda_mutua' ? '2.2' : '1.5');
+          item.path.setAttribute('opacity', '0.72');
+          item.path.setAttribute('stroke-width', item.sub.kind === 'ayuda_mutua' ? '2.5' : '1.8');
         }
       });
 
@@ -618,15 +775,18 @@ export function renderSynergyDiagram({
   const legend = el('div', { className: 'diagram-legend' }, [
     el('span', { className: 'legend-item' }, [
       el('span', { className: 'legend-swatch legend-swatch--gold' }),
-      'Puedo ayudar ↔ Busco orientación'
+      'Puedo ayudar → / ↔ Ayuda mutua'
     ]),
     el('span', { className: 'legend-item' }, [
       el('span', { className: 'legend-swatch legend-swatch--celeste' }),
-      'Tema compartido entre áreas'
+      'Tema compartido entre áreas ↔'
     ]),
     el('span', { className: 'legend-item' }, [
       el('span', { className: 'legend-swatch legend-swatch--navy' }),
-      'Afinidad humana no laboral'
+      'Afinidad humana / rompehielo ↔'
+    ]),
+    el('span', { className: 'legend-item legend-item--tip' }, [
+      '💡 Clic en 2 colegas para comparar sus fichas'
     ])
   ]);
 

@@ -14,15 +14,24 @@ function getBaseUrl(cfg) {
 
 function normalizeErrorMessage(status, bodyText, fallback) {
   let raw = '';
+  let errorCode = '';
   try {
     const parsed = JSON.parse(bodyText || '{}');
     raw = parsed.msg || parsed.error_description || parsed.message || parsed.error || '';
+    errorCode = parsed.error_code || parsed.code || '';
   } catch {
     raw = String(bodyText || '');
   }
-  const lower = raw.toLowerCase();
-  if (status === 429 || lower.includes('rate limit') || lower.includes('security purposes')) {
-    return 'Por seguridad debes esperar unos segundos antes de solicitar otro enlace de acceso.';
+  const lower = `${raw} ${errorCode}`.toLowerCase();
+
+  if (lower.includes('over_email_send_rate_limit') || lower.includes('email rate limit exceeded')) {
+    return 'Límite de correos por hora alcanzado en Supabase (~3 por hora en su servidor gratuito). Espera unos minutos antes de volver a solicitar un enlace, o activa un proveedor SMTP propio en Supabase para envíos ilimitados.';
+  }
+  if (lower.includes('security purposes') || lower.includes('once every') || lower.includes('wait')) {
+    return 'Por seguridad debes esperar 60 segundos antes de solicitar otro enlace al mismo correo.';
+  }
+  if (status === 429 || lower.includes('rate limit')) {
+    return 'Límite de solicitudes alcanzado en Supabase. Espera unos minutos antes de intentar nuevamente.';
   }
   if (lower.includes('expired') || lower.includes('invalid') || lower.includes('token has expired')) {
     return 'El enlace de acceso es inválido o ya expiró. Solicita uno nuevo.';

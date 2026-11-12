@@ -454,11 +454,11 @@ export function createStore(modelo) {
             connectionsTableMissing = true;
           } else if (connRes.ok) {
             const connRows = await connRes.json();
-            const mergedMap = new Map((state.connections || []).map((c) => [c.id, c]));
+            const remoteMap = new Map();
             for (const row of Array.isArray(connRows) ? connRows : []) {
               if (!row?.from_key || !row?.to_id) continue;
               const id = row.id || `${row.from_key}__${row.to_id}`;
-              mergedMap.set(id, {
+              remoteMap.set(id, {
                 id,
                 fromKey: row.from_key,
                 toId: row.to_id,
@@ -466,7 +466,30 @@ export function createStore(modelo) {
                 createdAt: row.created_at || new Date().toISOString()
               });
             }
-            const nextConnections = [...mergedMap.values()];
+
+            // Subir a Supabase conexiones locales que aún no estén en la nube
+            const localList = Array.isArray(state.connections) ? state.connections : [];
+            for (const localConn of localList) {
+              if (!remoteMap.has(localConn.id)) {
+                fetch(`${cfg.supabaseUrl.replace(/\/$/, '')}/rest/v1/${connTable}`, {
+                  method: 'POST',
+                  headers: buildSupabaseHeaders(cfg.supabaseAnonKey, {
+                    'Content-Type': 'application/json',
+                    Prefer: 'resolution=ignore-duplicates, return=minimal'
+                  }),
+                  body: JSON.stringify({
+                    id: localConn.id,
+                    from_key: localConn.fromKey,
+                    to_id: localConn.toId,
+                    channel: localConn.channel,
+                    created_at: localConn.createdAt
+                  })
+                }).catch(() => {});
+                remoteMap.set(localConn.id, localConn);
+              }
+            }
+
+            const nextConnections = [...remoteMap.values()];
             if (JSON.stringify(nextConnections) !== JSON.stringify(state.connections)) {
               state.connections = nextConnections;
               changed = true;
@@ -650,29 +673,26 @@ export function createStore(modelo) {
 
     const cfg = modelo.storageConfig || {};
     if (cfg.supabaseUrl && cfg.supabaseAnonKey && !connectionsTableMissing) {
-      try {
-        const connTable = cfg.supabaseConnectionsTable || 'conexiones_sinergia';
-        const endpoint = `${cfg.supabaseUrl.replace(/\/$/, '')}/rest/v1/${connTable}`;
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: buildSupabaseHeaders(cfg.supabaseAnonKey, {
-            'Content-Type': 'application/json',
-            Prefer: 'return=minimal'
-          }),
-          body: JSON.stringify({
-            id: entry.id,
-            from_key: entry.fromKey,
-            to_id: entry.toId,
-            channel: entry.channel,
-            created_at: entry.createdAt
-          })
-        });
-        if (res.status === 404) {
-          connectionsTableMissing = true;
-        }
-      } catch {
-        // Sin conexión temporal; la conexión ya quedó contabilizada localmente.
-      }
+      const connTable = cfg.supabaseConnectionsTable || 'conexiones_sinergia';
+      const endpoint = `${cfg.supabaseUrl.replace(/\/$/, '')}/rest/v1/${connTable}`;
+      fetch(endpoint, {
+        method: 'POST',
+        headers: buildSupabaseHeaders(cfg.supabaseAnonKey, {
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=ignore-duplicates, return=minimal'
+        }),
+        body: JSON.stringify({
+          id: entry.id,
+          from_key: entry.fromKey,
+          to_id: entry.toId,
+          channel: entry.channel,
+          created_at: entry.createdAt
+        })
+      })
+        .then((res) => {
+          if (res.status === 404) connectionsTableMissing = true;
+        })
+        .catch(() => {});
     }
 
     return entry;

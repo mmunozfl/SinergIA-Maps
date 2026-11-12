@@ -72,6 +72,7 @@ async function bootstrap() {
     route: parseRoute(modelo),
     diagramMode: 'red',
     selectedNodeId: null,
+    selectedNodeIds: [],
     interviewMode: 'new',
     editingProfileId: null,
     interviewStep: 0,
@@ -236,6 +237,9 @@ async function bootstrap() {
       if (uiState.selectedNodeId === profile.id) {
         uiState.selectedNodeId = null;
       }
+      if (Array.isArray(uiState.selectedNodeIds)) {
+        uiState.selectedNodeIds = uiState.selectedNodeIds.filter((id) => id !== profile.id);
+      }
       if (uiState.editingProfileId === profile.id) {
         uiState.interviewMode = 'new';
         uiState.editingProfileId = null;
@@ -267,6 +271,7 @@ async function bootstrap() {
   async function handleSignOut() {
     await store.signOut();
     uiState.selectedNodeId = null;
+    uiState.selectedNodeIds = [];
     uiState.interviewMode = 'new';
     uiState.editingProfileId = null;
     if (uiState.route === 'cruces' && !hasCompletedSurvey(store.getState())) {

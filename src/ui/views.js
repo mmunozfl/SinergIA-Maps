@@ -298,13 +298,24 @@ export function renderMapaView({
     metricCard(metrics.connectedPeopleCount, 'Personas conectadas')
   ]);
 
+  const selectedIds = Array.isArray(uiState.selectedNodeIds) && uiState.selectedNodeIds.length
+    ? uiState.selectedNodeIds
+    : uiState.selectedNodeId
+      ? [uiState.selectedNodeId]
+      : [];
+  const selectedProfiles = selectedIds
+    .map((id) => state.profiles.find((p) => p.id === id))
+    .filter(Boolean);
+  const isComparison = selectedProfiles.length === 2;
+  const singleProfile = selectedProfiles.length === 1 ? selectedProfiles[0] : null;
+
   const diagramPanel = el('section', { className: 'card card--mapa' }, [
     el('div', { className: 'card__header card__header--compact' }, [
       el('div', {}, [
         el('h2', { text: 'Mapa Interactivo de Sinergia vs. Organigrama' }),
         el('p', {
           className: 'muted',
-          text: 'Alterna entre la Red de Sinergia y el Organigrama para explorar conexiones y hacer clic en cualquier colega.'
+          text: 'Alterna entre la Red de Sinergia y el Organigrama. Haz clic en 1 o 2 colegas para ver o comparar sus fichas.'
         })
       ])
     ]),
@@ -312,11 +323,29 @@ export function renderMapaView({
       network,
       modelo,
       mode: uiState.diagramMode || 'red',
-      selectedId: uiState.selectedNodeId,
+      selectedIds,
+      selectedId: selectedIds[0] || null,
       myProfileId: state.myProfileId,
       onNewInterview: () => onNavigate('entrevista'),
       onSelectNode: (nodeId) => {
-        setUiState({ selectedNodeId: uiState.selectedNodeId === nodeId ? null : nodeId });
+        let current = Array.isArray(uiState.selectedNodeIds) && uiState.selectedNodeIds.length
+          ? [...uiState.selectedNodeIds]
+          : uiState.selectedNodeId
+            ? [uiState.selectedNodeId]
+            : [];
+        if (current.includes(nodeId)) {
+          current = current.filter((id) => id !== nodeId);
+        } else if (current.length === 0) {
+          current = [nodeId];
+        } else if (current.length === 1) {
+          current = [current[0], nodeId];
+        } else {
+          current = [current[1], nodeId];
+        }
+        setUiState({
+          selectedNodeIds: current,
+          selectedNodeId: current[0] || null
+        });
       },
       onToggleMode: (nextMode) => setUiState({ diagramMode: nextMode }),
       onExportSvg: (svgNode) => {
@@ -326,10 +355,10 @@ export function renderMapaView({
     })
   ]);
 
-  const inspectorContent = selectedProfile
-    ? renderInspectorCard({
-        profile: selectedProfile,
-        allProfiles: state.profiles,
+  const inspectorContent = isComparison
+    ? renderComparisonCard({
+        profileA: selectedProfiles[0],
+        profileB: selectedProfiles[1],
         myProfile,
         modelo,
         store,
@@ -337,23 +366,38 @@ export function renderMapaView({
         onStartEncounter,
         onEditProfile,
         onDeleteProfile,
-        onOpenAuthModal
-      })
-    : renderInsightsSummary({
-        network,
-        modelo,
-        myProfile,
-        authUser: state.authUser,
-        store,
-        setUiState,
-        onNavigate,
-        onEditProfile,
-        onDeleteProfile,
         onOpenAuthModal,
-        onSignOut
-      });
+        onCloseCompare: () => setUiState({ selectedNodeIds: [], selectedNodeId: null })
+      })
+    : singleProfile
+      ? renderInspectorCard({
+          profile: singleProfile,
+          allProfiles: state.profiles,
+          myProfile,
+          modelo,
+          store,
+          onToast,
+          onStartEncounter,
+          onEditProfile,
+          onDeleteProfile,
+          onOpenAuthModal,
+          onCloseInspector: () => setUiState({ selectedNodeIds: [], selectedNodeId: null })
+        })
+      : renderInsightsSummary({
+          network,
+          modelo,
+          myProfile,
+          authUser: state.authUser,
+          store,
+          setUiState,
+          onNavigate,
+          onEditProfile,
+          onDeleteProfile,
+          onOpenAuthModal,
+          onSignOut
+        });
 
-  const layout = el('div', { className: 'mapa-layout' }, [
+  const layout = el('div', { className: isComparison ? 'mapa-layout has-comparison' : 'mapa-layout' }, [
     el('div', { className: 'mapa-main' }, [diagramPanel]),
     el('aside', { className: 'mapa-aside' }, [inspectorContent])
   ]);
@@ -368,6 +412,129 @@ function metricCard(value, label) {
   ]);
 }
 
+function renderComparisonCard({
+  profileA,
+  profileB,
+  myProfile,
+  modelo,
+  store,
+  onToast,
+  onStartEncounter,
+  onEditProfile,
+  onDeleteProfile,
+  onOpenAuthModal,
+  onCloseCompare
+}) {
+  const synergy = analyzePairSynergy(profileA, profileB);
+
+  const synergyItems = [];
+  if (synergy.aHelpsB.length) {
+    synergyItems.push(
+      el('li', { className: 'compare-reason' }, [
+        el('strong', { text: `${profileA.nombre.split(' ')[0]} orienta a ${profileB.nombre.split(' ')[0]}: ` }),
+        el('span', { text: synergy.aHelpsB.join(', ') })
+      ])
+    );
+  }
+  if (synergy.bHelpsA.length) {
+    synergyItems.push(
+      el('li', { className: 'compare-reason' }, [
+        el('strong', { text: `${profileB.nombre.split(' ')[0]} orienta a ${profileA.nombre.split(' ')[0]}: ` }),
+        el('span', { text: synergy.bHelpsA.join(', ') })
+      ])
+    );
+  }
+  if (synergy.sharedWork.length && synergy.crossArea) {
+    synergyItems.push(
+      el('li', { className: 'compare-reason' }, [
+        el('strong', { text: 'Tema común entre áreas: ' }),
+        el('span', { text: synergy.sharedWork.join(', ') })
+      ])
+    );
+  }
+  if (synergy.sharedHuman.length) {
+    synergyItems.push(
+      el('li', { className: 'compare-reason' }, [
+        el('strong', { text: 'Gustos e intereses afines: ' }),
+        el('span', { text: synergy.sharedHuman.join(', ') })
+      ])
+    );
+  }
+  if (!synergyItems.length) {
+    synergyItems.push(
+      el('li', { className: 'compare-reason muted-xs' }, [
+        el('span', { text: 'Sin cruces temáticos directos aún. Una conversación de 15 min puede abrir nuevos puentes de apoyo.' })
+      ])
+    );
+  }
+
+  function renderMiniProfileCard(p) {
+    return el('div', { className: 'compare-col card' }, [
+      el('div', { className: 'compare-col__head' }, [
+        el('div', { className: 'deck-avatar deck-avatar--sm', text: getInitials(p.nombre) }),
+        el('div', { className: 'compare-col__meta' }, [
+          el('h4', { text: p.nombre }),
+          el('p', { className: 'muted-xs', text: `${p.cargo} · ${p.area}` }),
+          el('span', { className: 'pill', text: p.macroNombre })
+        ])
+      ]),
+      el('div', { className: 'compare-col__body' }, [
+        el('div', { className: 'compare-col__section' }, [
+          el('span', { className: 'deck-section__title', text: 'En qué puede orientar' }),
+          renderTagList(p.temasAyudo, 'work'),
+          p.detalleAyudo ? el('p', { className: 'muted-xs', text: p.detalleAyudo }) : null
+        ]),
+        el('div', { className: 'compare-col__section' }, [
+          el('span', { className: 'deck-section__title', text: 'Temas que busca' }),
+          p.temasBusco?.length
+            ? renderTagList(p.temasBusco, 'seek')
+            : el('p', { className: 'muted-xs', text: 'Abierto a conversar.' }),
+          p.detalleBusco ? el('p', { className: 'muted-xs', text: p.detalleBusco }) : null
+        ]),
+        p.interesesComunes?.length
+          ? el('div', { className: 'compare-col__section' }, [
+              el('span', { className: 'deck-section__title', text: 'Gustos' }),
+              renderTagList(p.interesesComunes, 'human')
+            ])
+          : null
+      ]),
+      el('div', { className: 'compare-col__actions' }, [
+        createActionButtonsForColleague(p, myProfile, modelo, onToast, onStartEncounter, (colleague, ch) =>
+          store.recordTeamsConnection(colleague, ch)
+        )
+      ])
+    ]);
+  }
+
+  return el('div', { className: 'card inspector-card inspector-card--compare' }, [
+    el('div', { className: 'compare-header' }, [
+      el('div', {}, [
+        el('span', { className: 'pill pill--gold', text: 'Comparación 1-a-1' }),
+        el('h3', { text: `${profileA.nombre.split(' ')[0]} y ${profileB.nombre.split(' ')[0]}` })
+      ]),
+      el('button', {
+        type: 'button',
+        className: 'btn btn--ghost btn--sm',
+        text: 'Cerrar comparación',
+        onClick: onCloseCompare
+      })
+    ]),
+    el('div', { className: 'compare-synergy-banner' }, [
+      el('div', { className: 'compare-synergy-banner__head' }, [
+        el('strong', { text: `Sinergia detectada (${synergy.score} pts)` }),
+        synergy.crossMacro
+          ? el('span', { className: 'pill pill--gold', text: 'Puente interáreas' })
+          : el('span', { className: 'pill', text: 'Misma macro-área' })
+      ]),
+      el('ul', { className: 'compare-reasons-list' }, synergyItems)
+    ]),
+    el('div', { className: 'compare-columns' }, [
+      renderMiniProfileCard(profileA),
+      renderMiniProfileCard(profileB)
+    ])
+  ]);
+}
+
 function renderInspectorCard({
   profile,
   allProfiles,
@@ -378,7 +545,8 @@ function renderInspectorCard({
   onStartEncounter,
   onEditProfile,
   onDeleteProfile,
-  onOpenAuthModal
+  onOpenAuthModal,
+  onCloseInspector
 }) {
   const matches = suggestMatches(profile, allProfiles).filter((m) => m.analysis.score > 0).slice(0, 3);
   const isMine = store.isProfileMine(profile);
@@ -428,6 +596,16 @@ function renderInspectorCard({
               })
             : null
         ]),
+        onCloseInspector
+          ? el('button', {
+              type: 'button',
+              className: 'modal-card__close',
+              'aria-label': 'Cerrar ficha',
+              style: 'font-size: 1.25rem; padding: 0.1rem 0.4rem;',
+              text: '×',
+              onClick: () => onCloseInspector()
+            })
+          : null,
         !isMine && canManageLocalProfiles() && onEditProfile
           ? el('button', {
               type: 'button',
@@ -443,7 +621,10 @@ function renderInspectorCard({
       profile.duracionSegundos
         ? el('p', { className: 'muted-xs', text: `Respondió en ${formatDuration(profile.duracionSegundos)}` })
         : null,
-      ownershipControls
+      ownershipControls,
+      el('div', { className: 'inspector-compare-hint' }, [
+        el('span', { text: '💡 Puedes hacer clic en otro colega en el mapa para comparar ambas fichas a la vez.' })
+      ])
     ]),
     el('div', { className: 'inspector-section' }, [
       el('h4', { text: 'Qué hace en el día a día' }),
@@ -1403,29 +1584,47 @@ export function renderCrucesView({
 
     if (isConnected) {
       const iceTopic = current.interesesComunes?.[0] || current.temasAyudo?.[0] || current.area;
-      stage.appendChild(
-        el('div', { className: 'deck-connect-panel' }, [
-          el('div', { className: 'deck-connect-panel__head' }, [
-            el('h4', { text: `Conecta con ${current.nombre}` }),
-            el('span', { className: 'pill pill--gold', text: current.correo })
+      const overlay = el('div', { className: 'deck-card-overlay' }, [
+        el('div', { className: 'deck-card-overlay__head' }, [
+          el('span', { className: 'pill pill--gold', text: '¡Conexión SinergIA!' }),
+          el('button', {
+            type: 'button',
+            className: 'deck-card-overlay__close',
+            'aria-label': 'Cerrar panel de conexión',
+            text: '×',
+            onClick: (e) => {
+              e.stopPropagation();
+              setUiState({ deckConnectedId: null });
+            }
+          })
+        ]),
+        el('div', { className: 'deck-card-overlay__hero' }, [
+          el('div', { className: 'deck-avatar deck-avatar--lg', text: getInitials(current.nombre) }),
+          el('h3', { text: current.nombre }),
+          el('p', { className: 'deck-card__role', text: `${current.cargo} · ${current.area}` }),
+          el('span', { className: 'pill pill--gold', text: current.correo })
+        ]),
+        el('div', { className: 'deck-card-overlay__body' }, [
+          el('div', { className: 'deck-card-overlay__icebreaker' }, [
+            el('strong', { text: '💡 Tema para romper el hielo:' }),
+            el('p', { text: `"${iceTopic}"` })
           ]),
-          el('p', {
-            className: 'muted-sm',
-            text: `Tema para romper el hielo: "${iceTopic}". Inicia un chat directo o envía invitación oficial de 15 min por Teams:`
-          }),
-          createActionButtonsForColleague(current, myProfile, modelo, onToast, onStartEncounter, (colleague, channel) =>
-            store.recordTeamsConnection(colleague, channel)
-          ),
-          el('div', { className: 'deck-connect-panel__footer' }, [
-            el('button', {
-              type: 'button',
-              className: 'btn btn--ghost btn--sm',
-              text: 'Seguir explorando colegas →',
-              onClick: advanceDeck
-            })
+          el('div', { className: 'deck-card-overlay__cta' }, [
+            createActionButtonsForColleague(current, myProfile, modelo, onToast, onStartEncounter, (colleague, channel) =>
+              store.recordTeamsConnection(colleague, channel)
+            )
           ])
+        ]),
+        el('div', { className: 'deck-card-overlay__foot' }, [
+          el('button', {
+            type: 'button',
+            className: 'btn btn--ghost btn--sm',
+            text: 'Seguir explorando colegas →',
+            onClick: advanceDeck
+          })
         ])
-      );
+      ]);
+      cardEl.appendChild(overlay);
     }
 
     const onKeyDown = (e) => {
@@ -1782,8 +1981,15 @@ export function renderAuthModal({ modalState, modelo, setModalPatch, onClose, on
     className: isSentStep ? 'is-readonly' : ''
   });
 
+  let isSubmitting = false;
   async function sendMagicLink(emailValue) {
+    if (isSubmitting || modalState.sending) return;
     const cleanEmail = String(emailValue || '').trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setModalPatch({ error: 'Ingresa un correo institucional o laboral válido.' });
+      return;
+    }
+    isSubmitting = true;
     setModalPatch({ sending: true, error: '', email: cleanEmail });
     try {
       if (modalState.afterVerify) {
@@ -1794,6 +2000,8 @@ export function renderAuthModal({ modalState, modelo, setModalPatch, onClose, on
       onToast(`Enviamos un enlace de inicio de sesión a ${cleanEmail}.`);
     } catch (err) {
       setModalPatch({ sending: false, error: err.message });
+    } finally {
+      isSubmitting = false;
     }
   }
 

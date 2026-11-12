@@ -42,11 +42,11 @@ export function analyzePairSynergy(a, b) {
   }
   if (aHelpsB.length) {
     score += aHelpsB.length * 6;
-    reasons.push(`${a.nombre.split(' ')[0]} puede apoyar en: ${aHelpsB.join(', ')}`);
+    reasons.push(`${a.nombre.split(' ')[0]} orienta a ${b.nombre.split(' ')[0]} en: ${aHelpsB.join(', ')}`);
   }
   if (bHelpsA.length) {
     score += bHelpsA.length * 6;
-    reasons.push(`${b.nombre.split(' ')[0]} puede apoyar en: ${bHelpsA.join(', ')}`);
+    reasons.push(`${b.nombre.split(' ')[0]} orienta a ${a.nombre.split(' ')[0]} en: ${bHelpsA.join(', ')}`);
   }
   if (sharedHuman.length) {
     score += sharedHuman.length * 3;
@@ -55,6 +55,37 @@ export function analyzePairSynergy(a, b) {
   if (sharedWork.length && !sameArea) {
     score += sharedWork.length * 2;
     reasons.push(`Tema común entre áreas: ${sharedWork.join(', ')}`);
+  }
+
+  const subEdges = [];
+  if (aHelpsB.length || bHelpsA.length) {
+    let direction = 'both';
+    if (aHelpsB.length && !bHelpsA.length) direction = 'a_to_b';
+    else if (bHelpsA.length && !aHelpsB.length) direction = 'b_to_a';
+    subEdges.push({
+      kind: 'ayuda_mutua',
+      direction,
+      reasons: [
+        ...(aHelpsB.length ? [`${a.nombre.split(' ')[0]} orienta a ${b.nombre.split(' ')[0]} en: ${aHelpsB.join(', ')}`] : []),
+        ...(bHelpsA.length ? [`${b.nombre.split(' ')[0]} orienta a ${a.nombre.split(' ')[0]} en: ${bHelpsA.join(', ')}`] : [])
+      ]
+    });
+  }
+
+  if (sharedWork.length && !sameArea) {
+    subEdges.push({
+      kind: 'saber_compartido',
+      direction: 'both',
+      reasons: [`Tema común entre áreas: ${sharedWork.join(', ')}`]
+    });
+  }
+
+  if (sharedHuman.length) {
+    subEdges.push({
+      kind: 'afinidades',
+      direction: 'both',
+      reasons: [`Afinidad humana: ${sharedHuman.join(', ')}`]
+    });
   }
 
   let kind = 'afinidades';
@@ -68,6 +99,7 @@ export function analyzePairSynergy(a, b) {
     crossMacro: !sameMacro,
     score,
     kind,
+    subEdges,
     aHelpsB,
     bHelpsA,
     sharedHuman,
