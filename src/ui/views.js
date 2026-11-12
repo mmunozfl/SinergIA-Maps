@@ -150,29 +150,49 @@ function createActionButtonsForColleague(colleague, myProfile, modelo, onToast, 
       durationMinutes: modelo.duracionReunionMinutos
     });
 
-  const btnTeams = el('a', {
-    className: 'btn btn--primary btn--sm',
-    href: buildTeamsChatUrl(colleague, myProfile),
-    target: '_blank',
-    rel: 'noopener noreferrer',
-    text: 'Chat Teams'
-  });
+  const btnTeams = el(
+    'a',
+    {
+      className: 'btn btn--primary btn--sm',
+      href: buildTeamsChatUrl(colleague, myProfile),
+      target: '_blank',
+      rel: 'noopener noreferrer'
+    },
+    [
+      svgIcon(
+        [
+          'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z'
+        ],
+        { size: 15, strokeWidth: 2.2 }
+      ),
+      el('span', { text: 'Chat Teams' })
+    ]
+  );
 
-  const btnTeamsMeeting = el('a', {
-    className: 'btn btn--secondary btn--sm',
-    href: buildMeetingHref(),
-    target: '_blank',
-    rel: 'noopener noreferrer',
-    text: `Agendar ${modelo.duracionReunionMinutos}m en Teams`,
-    onClick: () => {
-      try {
-        btnTeamsMeeting.setAttribute('href', buildMeetingHref());
-        onToast('Teams abierto con la invitación de 15 min lista para enviar.');
-      } catch (err) {
-        onToast(err.message, true);
+  const btnTeamsMeeting = el(
+    'a',
+    {
+      className: 'btn btn--secondary btn--sm',
+      href: buildMeetingHref(),
+      target: '_blank',
+      rel: 'noopener noreferrer',
+      onClick: () => {
+        try {
+          btnTeamsMeeting.setAttribute('href', buildMeetingHref());
+          onToast('Teams abierto con la invitación de 15 min lista para enviar.');
+        } catch (err) {
+          onToast(err.message, true);
+        }
       }
-    }
-  });
+    },
+    [
+      svgIcon(['M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'M16 2v4', 'M8 2v4', 'M3 10h18'], {
+        size: 15,
+        strokeWidth: 2.2
+      }),
+      el('span', { text: `Agendar ${modelo.duracionReunionMinutos}m en Teams` })
+    ]
+  );
 
   dateInput.addEventListener('change', () => {
     try {

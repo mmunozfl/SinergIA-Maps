@@ -20,17 +20,38 @@ function formatIcsUtc(date) {
   );
 }
 
+function joinListEs(items) {
+  const clean = (Array.isArray(items) ? items : []).map((x) => String(x || '').trim()).filter(Boolean);
+  if (!clean.length) return '';
+  if (clean.length === 1) return clean[0];
+  return `${clean.slice(0, -1).join(', ')} y ${clean[clean.length - 1]}`;
+}
+
 /**
- * Construye enlace directo para iniciar chat en Microsoft Teams.
+ * Construye enlace directo para iniciar chat en Microsoft Teams con saludo e icebreaker según temas ofrecidos.
  */
 export function buildTeamsChatUrl(targetProfile, myProfile) {
-  const intro = myProfile
-    ? `Hola ${targetProfile.nombre}, soy ${myProfile.nombre} (${myProfile.area}). Vi tu entrevista en SinergIA-Maps, ¿conversamos 15 min?`
-    : `Hola ${targetProfile.nombre}, vi tu perfil en SinergIA-Maps. ¿Coordinamos 15 min para conocernos entre áreas?`;
+  const greeting = myProfile
+    ? `Hola ${targetProfile.nombre}, soy ${myProfile.nombre} (${myProfile.area}).`
+    : `Hola ${targetProfile.nombre}, mucho gusto.`;
+
+  const topics = Array.isArray(targetProfile.temasAyudo) ? targetProfile.temasAyudo.filter(Boolean) : [];
+  const topicsText = joinListEs(topics);
+
+  let introBody;
+  if (topics.length === 1) {
+    introBody = `Vi tu perfil en SinergIA y leí que ofrecías ayuda en ${topicsText}, entonces me gustaría ver si me puedes orientar con ese tema en una breve conversación de 15 min.`;
+  } else if (topics.length > 1) {
+    introBody = `Vi tu perfil en SinergIA y leí que ofrecías ayuda en ${topicsText}, entonces me gustaría que me pudieras ayudar con uno de ellos (¿tendrías 15 min para conversar?).`;
+  } else if (targetProfile.detalleAyudo) {
+    introBody = `Vi tu perfil en SinergIA y leí que puedes apoyar en: ${targetProfile.detalleAyudo}. Me gustaría conversar contigo 15 min si tienes disponibilidad.`;
+  } else {
+    introBody = 'Vi tu perfil en SinergIA y me gustaría coordinar 15 min para conocernos y conectar entre áreas.';
+  }
 
   const params = new URLSearchParams({
     users: targetProfile.correo,
-    message: intro
+    message: `${greeting} ${introBody}`
   });
   return `https://teams.microsoft.com/l/chat/0/0?${params.toString()}`;
 }
@@ -45,9 +66,11 @@ export function buildTeamsMeetingUrl({ targetProfile, myProfile, startDateTimeLo
   }
   const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
   const organizer = myProfile ? `${myProfile.nombre} (${myProfile.area})` : 'Colega';
-  const subject = `SinergIA-Maps: ${organizer} ↔ ${targetProfile.nombre}`;
+  const subject = `SinergIA: ${organizer} ↔ ${targetProfile.nombre}`;
+  const topicsText = joinListEs(targetProfile.temasAyudo);
   const content = [
-    `Micro-encuentro SinergIA-Maps (${durationMinutes} min) para conocernos y compartir apoyo entre áreas.`,
+    `Micro-encuentro SinergIA (${durationMinutes} min) para conocernos y compartir apoyo entre áreas.`,
+    topicsText ? `Temas en los que ofrece ayuda: ${topicsText}` : '',
     targetProfile.detalleAyudo ? `Puede orientar en: ${targetProfile.detalleAyudo}` : '',
     targetProfile.interesesComunes?.length
       ? `Intereses para romper el hielo: ${targetProfile.interesesComunes.join(', ')}`
