@@ -203,6 +203,8 @@ export function buildFormFields(fields, modelo, initialValues = {}, extraTagsByS
         id: inputId,
         name: field.id,
         type: field.type || 'text',
+        className: field.readOnly ? 'is-readonly' : '',
+        readOnly: Boolean(field.readOnly),
         required: Boolean(field.required),
         placeholder: field.placeholder || '',
         value
@@ -215,7 +217,8 @@ export function buildFormFields(fields, modelo, initialValues = {}, extraTagsByS
         field.label,
         field.required ? el('span', { className: 'req-mark', text: ' *' }) : null
       ]),
-      control
+      control,
+      field.hint ? el('p', { className: 'muted-xs', text: field.hint }) : null
     ]);
     wrapper.appendChild(row);
   }

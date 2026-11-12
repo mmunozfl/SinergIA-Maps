@@ -1,11 +1,14 @@
-import { createStore, decodePayload } from './core/store.js';
+import { createStore, decodePayload, consumePendingAction } from './core/store.js';
+import { consumeAuthCallback, getValidSession } from './core/auth.js';
 import { el, renderInto } from './ui/dom.js';
 import {
   renderMapaView,
   renderEntrevistaView,
   renderCrucesView,
   renderEvidenciaView,
-  renderQuienesSomosView
+  renderQuienesSomosView,
+  renderAuthModal,
+  renderDeleteModal
 } from './ui/views.js';
 
 const MODEL_URL = './data/modelo-sinergia.json';
@@ -79,10 +82,13 @@ async function bootstrap() {
     deckFilterMacro: '',
     deckSavedOnly: false,
     deckConnectedId: null,
-    encounterTarget: null
+    encounterTarget: null,
+    authModal: null,
+    deleteModal: null
   };
 
   const toastNode = el('div', { className: 'toast', role: 'status', 'aria-live': 'polite' });
+  const modalNode = el('div', { className: 'modal-root' });
   const headerNode = el('header', { className: 'topbar no-print' });
   const mainNode = el('main', { className: 'container main-content' });
   const autor = modelo.programa.autor;
@@ -99,7 +105,7 @@ async function bootstrap() {
     el('span', { className: 'footer__program', text: modelo.programa.subtitulo })
   ]);
 
-  renderInto(appRoot, [headerNode, mainNode, footerNode, toastNode]);
+  renderInto(appRoot, [headerNode, mainNode, footerNode, modalNode, toastNode]);
 
   function onToast(msg, isError = false) {
     showToast(toastNode, msg, isError);
@@ -183,6 +189,154 @@ async function bootstrap() {
     navigate('evidencia');
   }
 
+  function openAuthModal({ email = '', reason = '', afterVerify = { type: 'identify' } } = {}) {
+    uiState.authModal = {
+      email,
+      reason,
+      step: 'email',
+      sending: false,
+      verifying: false,
+      error: '',
+      afterVerify
+    };
+    renderModals();
+  }
+
+  function closeAuthModal() {
+    consumePendingAction();
+    uiState.authModal = null;
+    renderModals();
+  }
+
+  function openDeleteModal(profile) {
+    if (!profile) return;
+    const hasSupabase = Boolean(modelo.storageConfig?.supabaseUrl && modelo.storageConfig?.supabaseAnonKey);
+    if (hasSupabase && !store.isProfileVerifiedOwner(profile)) {
+      openAuthModal({
+        email: profile.correo,
+        reason: 'Por seguridad, verifica tu correo antes de retirar tu ficha del mapa.',
+        afterVerify: { type: 'delete', profileId: profile.id }
+      });
+      return;
+    }
+    uiState.deleteModal = { profile, deleting: false, error: '' };
+    renderModals();
+  }
+
+  async function handleConfirmDelete(profile) {
+    uiState.deleteModal = { ...uiState.deleteModal, deleting: true, error: '' };
+    renderModals();
+    try {
+      await store.deleteMyProfile(profile.id);
+      uiState.deleteModal = null;
+      if (uiState.selectedNodeId === profile.id) {
+        uiState.selectedNodeId = null;
+      }
+      if (uiState.editingProfileId === profile.id) {
+        uiState.interviewMode = 'new';
+        uiState.editingProfileId = null;
+        uiState.interviewDraft = null;
+      }
+      renderModals();
+      render();
+      onToast('Tu ficha fue eliminada del mapa SinergIA.');
+    } catch (err) {
+      if (err.code === 'AUTH_REQUIRED') {
+        uiState.deleteModal = null;
+        openAuthModal({
+          email: profile.correo,
+          reason: err.message,
+          afterVerify: { type: 'delete', profileId: profile.id }
+        });
+        return;
+      }
+      uiState.deleteModal = { profile, deleting: false, error: err.message };
+      renderModals();
+      onToast(err.message, true);
+    }
+  }
+
+  async function handleSignOut() {
+    await store.signOut();
+    uiState.selectedNodeId = null;
+    uiState.interviewMode = 'new';
+    uiState.editingProfileId = null;
+    onToast('Verificación cerrada en este navegador.');
+    render();
+  }
+
+  async function handleAuthCompleted(session) {
+    const inlineAfterVerify = uiState.authModal?.afterVerify || null;
+    const storedPending = consumePendingAction();
+    const pending = inlineAfterVerify || storedPending;
+
+    store.setAuthSession(session);
+    uiState.authModal = null;
+    renderModals();
+
+    const matched = store.getMyProfile();
+
+    if (pending?.type === 'save_draft' && pending?.draft) {
+      const verifiedEmail = session?.user?.email?.toLowerCase();
+      const draftEmail = String(pending.draft.correo || '').trim().toLowerCase();
+      if (verifiedEmail && draftEmail === verifiedEmail) {
+        const draftToSave = {
+          ...pending.draft,
+          id: matched?.id || pending.draft.id,
+          correo: verifiedEmail
+        };
+        const res = await store.saveMyInterview(draftToSave, { markAsMine: true, isEditing: true });
+        if (res.remoteMode !== 'blocked') {
+          uiState.route = 'entrevista';
+          uiState.interviewMode = 'new';
+          uiState.editingProfileId = null;
+          uiState.interviewDraft = null;
+          uiState.interviewStep = 0;
+          uiState.interviewCompletedProfileId = res.profile.id;
+          uiState.selectedNodeId = res.profile.id;
+          render();
+          onToast('Correo verificado y ficha actualizada en vivo.');
+          return;
+        }
+        onToast(res.remoteError || 'No se pudo guardar la ficha verificada.', true);
+      } else {
+        onToast(`Verificaste ${verifiedEmail}, distinto del correo ingresado (${draftEmail}).`, true);
+      }
+
+      uiState.route = 'entrevista';
+      uiState.interviewMode = matched ? 'edit' : 'new';
+      uiState.editingProfileId = matched?.id || null;
+      uiState.interviewDraft = pending.draft;
+      render();
+      return;
+    }
+
+    if (pending?.type === 'delete' && matched) {
+      uiState.selectedNodeId = matched.id;
+      uiState.deleteModal = { profile: matched, deleting: false, error: '' };
+      render();
+      renderModals();
+      return;
+    }
+
+    if (pending?.type === 'edit' && matched) {
+      startEditProfile(matched);
+      onToast(`Identidad verificada. Editando ficha de ${matched.nombre}.`);
+      return;
+    }
+
+    if (matched) {
+      uiState.selectedNodeId = matched.id;
+      navigate('mapa');
+      onToast(`¡Hola, ${matched.nombre}! Tu ficha fue reconocida en el mapa.`);
+      return;
+    }
+
+    uiState.interviewDraft = { ...(uiState.interviewDraft || {}), correo: session.user.email };
+    navigate('entrevista');
+    onToast(`Correo verificado (${session.user.email}). Completa la entrevista para aparecer en el mapa.`);
+  }
+
   function handleImportFromHash() {
     const rawHash = window.location.hash.replace(/^#/, '');
     if (!rawHash.startsWith('import=')) return;
@@ -240,6 +394,33 @@ async function bootstrap() {
     );
   }
 
+  function renderModals() {
+    const modalEl = uiState.authModal
+      ? renderAuthModal({
+          modalState: uiState.authModal,
+          modelo,
+          setModalPatch: (patch) => {
+            if (!uiState.authModal) return;
+            uiState.authModal = { ...uiState.authModal, ...patch };
+            renderModals();
+          },
+          onClose: closeAuthModal,
+          onAuthenticated: handleAuthCompleted,
+          onToast
+        })
+      : uiState.deleteModal
+        ? renderDeleteModal({
+            deleteState: uiState.deleteModal,
+            onConfirmDelete: handleConfirmDelete,
+            onClose: () => {
+              uiState.deleteModal = null;
+              renderModals();
+            }
+          })
+        : null;
+    renderInto(modalNode, modalEl);
+  }
+
   function render() {
     const state = store.getState();
     renderHeader();
@@ -253,7 +434,10 @@ async function bootstrap() {
       onToast,
       onNavigate: navigate,
       onStartEncounter: startEncounter,
-      onEditProfile: startEditProfile
+      onEditProfile: startEditProfile,
+      onDeleteProfile: openDeleteModal,
+      onOpenAuthModal: openAuthModal,
+      onSignOut: handleSignOut
     };
 
     let view;
@@ -264,9 +448,11 @@ async function bootstrap() {
     else view = renderMapaView(ctx);
 
     renderInto(mainNode, view);
+    renderModals();
   }
 
   function isEditingActiveForm() {
+    if (uiState.authModal || uiState.deleteModal) return true;
     if (uiState.route === 'entrevista' || uiState.route === 'evidencia') return true;
     const active = document.activeElement;
     return Boolean(
@@ -285,15 +471,41 @@ async function bootstrap() {
 
   window.addEventListener('hashchange', syncRouteFromUrl);
   window.addEventListener('popstate', syncRouteFromUrl);
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (uiState.authModal && !uiState.authModal.sending && !uiState.authModal.verifying) {
+      closeAuthModal();
+    } else if (uiState.deleteModal && !uiState.deleteModal.deleting) {
+      uiState.deleteModal = null;
+      renderModals();
+    }
+  });
 
   store.subscribe(() => {
     if (isEditingActiveForm()) return;
     render();
   });
+
+  const authCallback = await consumeAuthCallback(modelo.storageConfig || {});
   handleImportFromHash();
   clearDefaultMapHash();
   render();
   await store.syncFromSources();
+
+  if (authCallback.status === 'authenticated') {
+    await handleAuthCompleted(authCallback.session);
+  } else {
+    if (authCallback.status === 'error') {
+      onToast(authCallback.error, true);
+    }
+    const validSession = await getValidSession(modelo.storageConfig || {});
+    if (validSession) {
+      store.setAuthSession(validSession);
+    } else if (store.getState().authUser) {
+      store.setAuthSession(null, { clearLocalIdentity: true });
+    }
+    render();
+  }
 
   // Refresco automático en vivo cada 8 s solo cuando no se está escribiendo en formularios y hubo cambios reales.
   if (modelo.storageConfig?.supabaseUrl && modelo.storageConfig?.supabaseAnonKey) {

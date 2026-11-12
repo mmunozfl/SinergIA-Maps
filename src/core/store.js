@@ -1,13 +1,46 @@
+import {
+  loadAuthSession,
+  saveAuthSession,
+  getValidSession,
+  signOutAuth,
+  getAuthUserFromSession
+} from './auth.js';
+
 const STORAGE_KEY = 'sinergia_maps_state_v2';
 const LEGACY_STORAGE_KEY = 'sinergia_ucm_state_v2';
+const PENDING_ACTION_KEY = 'sinergia_maps_pending_action_v1';
 
 const EMPTY_STATE = {
   myProfileId: null,
   profiles: [],
   encounters: [],
   savedIds: [],
+  authUser: null,
   syncStatus: 'local'
 };
+
+export function savePendingAction(action) {
+  if (typeof localStorage === 'undefined') return;
+  if (!action) {
+    localStorage.removeItem(PENDING_ACTION_KEY);
+    return;
+  }
+  localStorage.setItem(PENDING_ACTION_KEY, JSON.stringify({ ...action, createdAt: Date.now() }));
+}
+
+export function consumePendingAction() {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(PENDING_ACTION_KEY);
+    localStorage.removeItem(PENDING_ACTION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed?.createdAt && Date.now() - parsed.createdAt > 30 * 60 * 1000) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Codifica un objeto JSON a Base64URL seguro para UTF-8.
@@ -106,12 +139,44 @@ function sanitizeProfile(profile, modelo) {
   };
 }
 
-function buildSupabaseHeaders(anonKey, extra = {}) {
+function buildSupabaseHeaders(anonKey, extra = {}, accessToken = null) {
   const headers = { apikey: anonKey, ...extra };
-  if (String(anonKey).startsWith('eyJ')) {
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  } else if (String(anonKey).startsWith('eyJ')) {
     headers.Authorization = `Bearer ${anonKey}`;
   }
   return headers;
+}
+
+function makeRemoteError(code, message) {
+  const err = new Error(message);
+  err.code = code;
+  return err;
+}
+
+function parseSupabaseError(status, bodyText, fallback) {
+  const text = String(bodyText || '');
+  const lower = text.toLowerCase();
+  if (status === 409 || lower.includes('23505') || lower.includes('duplicate key')) {
+    return makeRemoteError('DUPLICATE_EMAIL', 'Ya existe una ficha registrada con ese correo.');
+  }
+  if (lower.includes('42501') || lower.includes('row-level security')) {
+    return makeRemoteError(
+      'RLS_POLICY_REQUIRED',
+      'Falta actualizar las políticas de seguridad (SQL) en Supabase para editar o eliminar fichas verificadas.'
+    );
+  }
+  if (status === 401) {
+    return makeRemoteError('AUTH_REQUIRED', 'Tu verificación venció. Confirma nuevamente tu correo para continuar.');
+  }
+  if (status === 403) {
+    return makeRemoteError(
+      'RLS_POLICY_REQUIRED',
+      'Supabase rechazó la operación por permisos RLS. Revisa las políticas en SQL Editor.'
+    );
+  }
+  return new Error(`${fallback} (${status})`);
 }
 
 /**
@@ -121,21 +186,35 @@ function buildSupabaseHeaders(anonKey, extra = {}) {
 export function createStore(modelo) {
   let state = loadLocalState();
   const listeners = new Set();
+  reconcileMyProfile();
 
   function loadLocalState() {
+    const authUser = getAuthUserFromSession(loadAuthSession());
     try {
       const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
-      if (!raw) return structuredClone(EMPTY_STATE);
+      if (!raw) return { ...structuredClone(EMPTY_STATE), authUser };
       const parsed = JSON.parse(raw);
       return {
         myProfileId: typeof parsed.myProfileId === 'string' ? parsed.myProfileId : null,
         profiles: Array.isArray(parsed.profiles) ? parsed.profiles : [],
         encounters: Array.isArray(parsed.encounters) ? parsed.encounters : [],
         savedIds: Array.isArray(parsed.savedIds) ? parsed.savedIds : [],
+        authUser,
         syncStatus: 'local'
       };
     } catch {
-      return structuredClone(EMPTY_STATE);
+      return { ...structuredClone(EMPTY_STATE), authUser };
+    }
+  }
+
+  function reconcileMyProfile() {
+    if (state.authUser?.email) {
+      const matched = state.profiles.find((p) => p.correo === state.authUser.email);
+      state.myProfileId = matched ? matched.id : null;
+      return;
+    }
+    if (state.myProfileId && state.profiles.length && !state.profiles.some((p) => p.id === state.myProfileId)) {
+      state.myProfileId = null;
     }
   }
 
@@ -164,7 +243,37 @@ export function createStore(modelo) {
   }
 
   function getMyProfile() {
+    if (state.authUser?.email) {
+      const byEmail = state.profiles.find((p) => p.correo === state.authUser.email);
+      if (byEmail) return byEmail;
+    }
     return state.profiles.find((p) => p.id === state.myProfileId) || null;
+  }
+
+  function isProfileMine(profile) {
+    if (!profile) return false;
+    if (state.authUser?.email && profile.correo === state.authUser.email) return true;
+    return Boolean(state.myProfileId && profile.id === state.myProfileId);
+  }
+
+  function isProfileVerifiedOwner(profile) {
+    return Boolean(profile && state.authUser?.email && profile.correo === state.authUser.email);
+  }
+
+  function setAuthSession(session, { clearLocalIdentity = false } = {}) {
+    saveAuthSession(session);
+    state.authUser = getAuthUserFromSession(session);
+    if (!session && clearLocalIdentity) {
+      state.myProfileId = null;
+    } else if (session) {
+      reconcileMyProfile();
+    }
+    persistLocal();
+  }
+
+  async function signOut() {
+    await signOutAuth(modelo.storageConfig || {});
+    setAuthSession(null, { clearLocalIdentity: true });
   }
 
   function mergeProfile(rawProfile, markAsMine = false) {
@@ -187,22 +296,76 @@ export function createStore(modelo) {
     return clean;
   }
 
-  async function pushToRemote(profile) {
+  async function supabaseInsertProfile(cfg, table, profile, accessToken = null) {
+    const endpoint = `${cfg.supabaseUrl.replace(/\/$/, '')}/rest/v1/${table}`;
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: buildSupabaseHeaders(
+        cfg.supabaseAnonKey,
+        { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        accessToken
+      ),
+      body: JSON.stringify({ id: profile.id, correo: profile.correo, payload: profile, updated_at: profile.updatedAt })
+    });
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => '');
+      throw parseSupabaseError(res.status, bodyText, 'Error Supabase al crear ficha');
+    }
+    return 'supabase';
+  }
+
+  async function supabaseUpdateProfile(cfg, table, profile, session) {
+    const endpoint = `${cfg.supabaseUrl.replace(/\/$/, '')}/rest/v1/${table}?correo=eq.${encodeURIComponent(profile.correo)}`;
+    const res = await fetch(endpoint, {
+      method: 'PATCH',
+      headers: buildSupabaseHeaders(
+        cfg.supabaseAnonKey,
+        { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+        session.accessToken
+      ),
+      body: JSON.stringify({ id: profile.id, correo: profile.correo, payload: profile, updated_at: profile.updatedAt })
+    });
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => '');
+      if (res.status === 401) {
+        saveAuthSession(null);
+        state.authUser = null;
+        persistLocal();
+      }
+      throw parseSupabaseError(res.status, bodyText, 'Error Supabase al actualizar ficha');
+    }
+    const rows = await res.json().catch(() => []);
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return supabaseInsertProfile(cfg, table, profile, session.accessToken);
+    }
+    return 'supabase';
+  }
+
+  async function pushToRemote(profile, { isUpdate = false } = {}) {
     const cfg = modelo.storageConfig || {};
 
     if (cfg.supabaseUrl && cfg.supabaseAnonKey) {
       const table = cfg.supabaseTable || 'cuestionarios_sinergia';
-      const endpoint = `${cfg.supabaseUrl.replace(/\/$/, '')}/rest/v1/${table}?on_conflict=correo`;
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: buildSupabaseHeaders(cfg.supabaseAnonKey, {
-          'Content-Type': 'application/json',
-          Prefer: 'resolution=merge-duplicates,return=minimal'
-        }),
-        body: JSON.stringify({ id: profile.id, correo: profile.correo, payload: profile, updated_at: profile.updatedAt })
-      });
-      if (!res.ok) throw new Error(`Error Supabase (${res.status})`);
-      return 'supabase';
+      const session = await getValidSession(cfg);
+      state.authUser = getAuthUserFromSession(session);
+      const sessionMatchesEmail = Boolean(session?.user?.email && session.user.email === profile.correo);
+      const alreadyExists = state.profiles.some((p) => p.correo === profile.correo);
+
+      if (isUpdate) {
+        if (!sessionMatchesEmail) {
+          throw makeRemoteError('AUTH_REQUIRED', 'Verifica tu correo institucional para guardar cambios en tu ficha.');
+        }
+        return supabaseUpdateProfile(cfg, table, profile, session);
+      }
+
+      if (alreadyExists) {
+        if (!sessionMatchesEmail) {
+          throw makeRemoteError('DUPLICATE_EMAIL', 'Ya existe una ficha registrada con ese correo.');
+        }
+        return supabaseUpdateProfile(cfg, table, profile, session);
+      }
+
+      return supabaseInsertProfile(cfg, table, profile, sessionMatchesEmail ? session.accessToken : null);
     }
 
     if (cfg.webhookUrl) {
@@ -224,6 +387,7 @@ export function createStore(modelo) {
   async function syncFromSources({ background = false } = {}) {
     const cfg = modelo.storageConfig || {};
     const prevSnapshot = JSON.stringify(state.profiles);
+    const prevMyId = state.myProfileId;
     let changed = false;
 
     if (!background && cfg.repoIndexUrl) {
@@ -257,12 +421,10 @@ export function createStore(modelo) {
             .map((row) => sanitizeProfile(row.payload, modelo));
           // En modo Supabase activo, la base en la nube es la fuente de verdad (SSOT) compartida.
           state.profiles = remoteProfiles;
-          if (state.myProfileId && !state.profiles.some((p) => p.id === state.myProfileId)) {
-            state.myProfileId = null;
-          }
+          reconcileMyProfile();
           const wasLocal = state.syncStatus !== 'supabase';
           state.syncStatus = 'supabase';
-          changed = wasLocal || JSON.stringify(state.profiles) !== prevSnapshot;
+          changed = wasLocal || state.myProfileId !== prevMyId || JSON.stringify(state.profiles) !== prevSnapshot;
         }
       } catch {
         if (state.syncStatus !== 'local-fallback') {
@@ -283,23 +445,89 @@ export function createStore(modelo) {
     if (changed) persistLocal();
   }
 
-  async function saveMyInterview(values, { markAsMine = true } = {}) {
-    const saved = mergeProfile(values, markAsMine);
+  async function saveMyInterview(values, { markAsMine = true, isEditing = false } = {}) {
+    const clean = sanitizeProfile(values, modelo);
+    const cfg = modelo.storageConfig || {};
+    const hasSupabase = Boolean(cfg.supabaseUrl && cfg.supabaseAnonKey);
+
+    if (hasSupabase) {
+      try {
+        const remoteMode = await pushToRemote(clean, { isUpdate: isEditing });
+        const saved = mergeProfile(clean, markAsMine);
+        persistLocal();
+        return { profile: saved, remoteMode, remoteError: null, remoteErrorCode: null };
+      } catch (err) {
+        if (['AUTH_REQUIRED', 'DUPLICATE_EMAIL', 'RLS_POLICY_REQUIRED'].includes(err.code)) {
+          return {
+            profile: clean,
+            remoteMode: 'blocked',
+            remoteError: err.message,
+            remoteErrorCode: err.code
+          };
+        }
+        const saved = mergeProfile(clean, markAsMine);
+        persistLocal();
+        return { profile: saved, remoteMode: 'local', remoteError: err.message, remoteErrorCode: 'NETWORK' };
+      }
+    }
+
+    const saved = mergeProfile(clean, markAsMine);
     persistLocal();
     let remoteMode = 'local';
     let remoteError = null;
     try {
-      remoteMode = await pushToRemote(saved);
+      remoteMode = await pushToRemote(saved, { isUpdate: isEditing });
     } catch (err) {
       remoteError = err.message;
     }
-    return { profile: saved, remoteMode, remoteError };
+    return { profile: saved, remoteMode, remoteError, remoteErrorCode: null };
   }
 
   function removeProfile(profileId) {
     state.profiles = state.profiles.filter((p) => p.id !== profileId);
+    state.savedIds = (state.savedIds || []).filter((id) => id !== profileId);
     if (state.myProfileId === profileId) state.myProfileId = null;
     persistLocal();
+  }
+
+  async function deleteMyProfile(profileId) {
+    const target = state.profiles.find((p) => p.id === profileId);
+    if (!target) return { deleted: false };
+
+    const cfg = modelo.storageConfig || {};
+    if (cfg.supabaseUrl && cfg.supabaseAnonKey) {
+      const table = cfg.supabaseTable || 'cuestionarios_sinergia';
+      const session = await getValidSession(cfg);
+      state.authUser = getAuthUserFromSession(session);
+      if (!session?.user?.email || session.user.email !== target.correo) {
+        throw makeRemoteError('AUTH_REQUIRED', 'Verifica tu correo institucional para eliminar tu ficha del mapa.');
+      }
+
+      const endpoint = `${cfg.supabaseUrl.replace(/\/$/, '')}/rest/v1/${table}?correo=eq.${encodeURIComponent(target.correo)}`;
+      const res = await fetch(endpoint, {
+        method: 'DELETE',
+        headers: buildSupabaseHeaders(cfg.supabaseAnonKey, { Prefer: 'return=representation' }, session.accessToken)
+      });
+      if (!res.ok) {
+        const bodyText = await res.text().catch(() => '');
+        if (res.status === 401) {
+          saveAuthSession(null);
+          state.authUser = null;
+          persistLocal();
+        }
+        throw parseSupabaseError(res.status, bodyText, 'No se pudo eliminar la ficha de Supabase');
+      }
+      const deletedRows = await res.json().catch(() => []);
+      if (!Array.isArray(deletedRows) || deletedRows.length === 0) {
+        throw makeRemoteError(
+          'RLS_POLICY_REQUIRED',
+          'Falta habilitar la política DELETE en Supabase (SQL Editor) para borrar tu ficha.'
+        );
+      }
+    }
+
+    removeProfile(target.id);
+    return { deleted: true, profile: target };
   }
 
   function addEncounter(values) {
@@ -370,9 +598,14 @@ export function createStore(modelo) {
     getState,
     subscribe,
     getMyProfile,
+    isProfileMine,
+    isProfileVerifiedOwner,
+    setAuthSession,
+    signOut,
     syncFromSources,
     saveMyInterview,
     removeProfile,
+    deleteMyProfile,
     addEncounter,
     removeEncounter,
     importBundle,

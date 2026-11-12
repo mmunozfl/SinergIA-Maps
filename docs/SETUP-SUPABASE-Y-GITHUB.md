@@ -20,33 +20,50 @@ create table if not exists public.cuestionarios_sinergia (
 alter table public.cuestionarios_sinergia enable row level security;
 
 -- Permite leer respuestas para dibujar el mapa vivo
+drop policy if exists "Lectura publica cuestionarios" on public.cuestionarios_sinergia;
 create policy "Lectura publica cuestionarios"
   on public.cuestionarios_sinergia
   for select
-  to anon
+  to anon, authenticated
   using (true);
 
--- Permite insertar nuevas entrevistas desde la web
+-- Permite insertar nuevas entrevistas por primera vez desde la web
+drop policy if exists "Insercion publica cuestionarios" on public.cuestionarios_sinergia;
 create policy "Insercion publica cuestionarios"
   on public.cuestionarios_sinergia
   for insert
-  to anon
+  to anon, authenticated
   with check (true);
 
--- Permite actualizar si un funcionario vuelve a editar su propia ficha (por correo)
-create policy "Actualizacion publica cuestionarios"
+-- Permite editar solo si el correo verificado en Supabase Auth coincide con la ficha
+drop policy if exists "Actualizacion publica cuestionarios" on public.cuestionarios_sinergia;
+drop policy if exists "Actualizacion por correo verificado" on public.cuestionarios_sinergia;
+create policy "Actualizacion por correo verificado"
   on public.cuestionarios_sinergia
   for update
-  to anon
-  using (true)
-  with check (true);
+  to authenticated
+  using (lower(correo) = lower(coalesce(auth.jwt() ->> 'email', '')))
+  with check (lower(correo) = lower(coalesce(auth.jwt() ->> 'email', '')));
+
+-- Permite retirar/eliminar la propia ficha solo al usuario verificado dueño del correo
+drop policy if exists "Eliminacion por correo verificado" on public.cuestionarios_sinergia;
+create policy "Eliminacion por correo verificado"
+  on public.cuestionarios_sinergia
+  for delete
+  to authenticated
+  using (lower(correo) = lower(coalesce(auth.jwt() ->> 'email', '')));
 ```
 
-3. Ve a **Project Settings → API** (o *Data API / API Keys*) y copia dos valores públicos:
+3. Configura **Authentication → URL Configuration**:
+   * **Site URL:** `https://mmunozfl.github.io/SinergIA-Maps/`
+   * **Redirect URLs:** agrega `https://mmunozfl.github.io/SinergIA-Maps/**`
+4. *(Recomendado para que el correo muestre además el código de 6 dígitos)* En **Authentication → Emails → Magic Link**, puedes incluir `{{ .Token }}` en el mensaje (por ejemplo: `Tu código de verificación es {{ .Token }}`) junto al botón/enlace `{{ .ConfirmationURL }}`. Así los usuarios pueden elegir entre hacer clic en el enlace o escribir los 6 dígitos sin cambiar de pestaña.
+
+5. Ve a **Project Settings → API** (o *Data API / API Keys*) y copia dos valores públicos:
    * **Project URL** (`https://xxxxx.supabase.co`)
    * **Publishable key** (`sb_publishable_...`) o **anon / public key** (`eyJ...`) — ambas son compatibles.
 
-4. Abre [`data/modelo-sinergia.json`](../data/modelo-sinergia.json) (líneas 15-22) y completa `supabaseUrl` y `supabaseAnonKey`:
+6. Abre [`data/modelo-sinergia.json`](../data/modelo-sinergia.json) (líneas 19-26) y completa `supabaseUrl` y `supabaseAnonKey`:
 
 ```json
 "storageConfig": {

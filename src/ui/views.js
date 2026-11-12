@@ -1,6 +1,7 @@
 import { el, buildFormFields, readFormValues } from './dom.js';
 import { renderSynergyDiagram } from './graph.js';
-import { validateBySchema, decodePayload } from '../core/store.js';
+import { validateBySchema, decodePayload, savePendingAction } from '../core/store.js';
+import { requestEmailOtp, verifyEmailOtp } from '../core/auth.js';
 import {
   analyzePairSynergy,
   buildSynergyNetwork,
@@ -239,10 +240,23 @@ function renderTagList(items = [], variant = 'work') {
 /**
  * Vista 1: Mapa Vivo SinergIA + Analítica + Inspector.
  */
-export function renderMapaView({ state, modelo, uiState, setUiState, onToast, onNavigate, onStartEncounter, onEditProfile }) {
+export function renderMapaView({
+  state,
+  modelo,
+  uiState,
+  setUiState,
+  store,
+  onToast,
+  onNavigate,
+  onStartEncounter,
+  onEditProfile,
+  onDeleteProfile,
+  onOpenAuthModal,
+  onSignOut
+}) {
   const network = buildSynergyNetwork(state.profiles);
   const metrics = computeMetrics(state, network);
-  const myProfile = state.profiles.find((p) => p.id === state.myProfileId) || null;
+  const myProfile = store.getMyProfile();
   const selectedProfile = state.profiles.find((p) => p.id === uiState.selectedNodeId) || null;
 
   const metricsBar = el('section', { className: 'metrics-grid' }, [
@@ -282,8 +296,31 @@ export function renderMapaView({ state, modelo, uiState, setUiState, onToast, on
   ]);
 
   const inspectorContent = selectedProfile
-    ? renderInspectorCard(selectedProfile, state.profiles, myProfile, modelo, onToast, onStartEncounter, onEditProfile)
-    : renderInsightsSummary(network, modelo);
+    ? renderInspectorCard({
+        profile: selectedProfile,
+        allProfiles: state.profiles,
+        myProfile,
+        modelo,
+        store,
+        onToast,
+        onStartEncounter,
+        onEditProfile,
+        onDeleteProfile,
+        onOpenAuthModal
+      })
+    : renderInsightsSummary({
+        network,
+        modelo,
+        myProfile,
+        authUser: state.authUser,
+        store,
+        setUiState,
+        onNavigate,
+        onEditProfile,
+        onDeleteProfile,
+        onOpenAuthModal,
+        onSignOut
+      });
 
   const layout = el('div', { className: 'mapa-layout' }, [
     el('div', { className: 'mapa-main' }, [diagramPanel]),
@@ -300,13 +337,67 @@ function metricCard(value, label) {
   ]);
 }
 
-function renderInspectorCard(profile, allProfiles, myProfile, modelo, onToast, onStartEncounter, onEditProfile) {
+function renderInspectorCard({
+  profile,
+  allProfiles,
+  myProfile,
+  modelo,
+  store,
+  onToast,
+  onStartEncounter,
+  onEditProfile,
+  onDeleteProfile,
+  onOpenAuthModal
+}) {
   const matches = suggestMatches(profile, allProfiles).filter((m) => m.analysis.score > 0).slice(0, 3);
+  const isMine = store.isProfileMine(profile);
+  const isVerified = store.isProfileVerifiedOwner(profile);
+  const hasSupabase = Boolean(modelo.storageConfig?.supabaseUrl && modelo.storageConfig?.supabaseAnonKey);
+
+  const ownershipControls = isMine
+    ? el('div', { className: 'my-profile-actions' }, [
+        el('button', {
+          type: 'button',
+          className: 'btn btn--secondary btn--sm',
+          text: 'Editar mi ficha',
+          onClick: () => onEditProfile?.(profile)
+        }),
+        el('button', {
+          type: 'button',
+          className: 'btn btn--danger btn--sm',
+          text: 'Eliminar mi ficha',
+          onClick: () => onDeleteProfile?.(profile)
+        })
+      ])
+    : hasSupabase && onOpenAuthModal
+      ? el('div', { className: 'my-profile-actions' }, [
+          el('button', {
+            type: 'button',
+            className: 'btn btn--ghost btn--sm',
+            text: '¿Es tu ficha? Verificar para editar / eliminar',
+            onClick: () =>
+              onOpenAuthModal({
+                email: profile.correo,
+                reason: 'Te enviaremos un enlace o código a este correo para comprobar que eres tú y habilitar edición o eliminación.',
+                afterVerify: { type: 'identify', profileId: profile.id }
+              })
+          })
+        ])
+      : null;
+
   return el('div', { className: 'card inspector-card' }, [
     el('div', { className: 'inspector-card__top' }, [
       el('div', { className: 'profile-card__head' }, [
-        el('span', { className: 'pill', text: profile.macroNombre }),
-        canManageLocalProfiles() && onEditProfile
+        el('div', { className: 'profile-card__meta' }, [
+          el('span', { className: 'pill', text: profile.macroNombre }),
+          isMine
+            ? el('span', {
+                className: isVerified ? 'pill pill--verified' : 'pill pill--gold',
+                text: isVerified ? 'Tu ficha · Verificada' : 'Tu ficha'
+              })
+            : null
+        ]),
+        !isMine && canManageLocalProfiles() && onEditProfile
           ? el('button', {
               type: 'button',
               className: 'btn btn--ghost btn--sm',
@@ -320,7 +411,8 @@ function renderInspectorCard(profile, allProfiles, myProfile, modelo, onToast, o
       profile.antiguedad ? el('p', { className: 'muted-xs', text: `Antigüedad: ${profile.antiguedad}` }) : null,
       profile.duracionSegundos
         ? el('p', { className: 'muted-xs', text: `Respondió en ${formatDuration(profile.duracionSegundos)}` })
-        : null
+        : null,
+      ownershipControls
     ]),
     el('div', { className: 'inspector-section' }, [
       el('h4', { text: 'Qué hace en el día a día' }),
@@ -361,8 +453,140 @@ function renderInspectorCard(profile, allProfiles, myProfile, modelo, onToast, o
   ]);
 }
 
-function renderInsightsSummary(network, modelo) {
-  return el('div', { className: 'card' }, [
+function renderIdentitySidebarCard({
+  modelo,
+  myProfile,
+  authUser,
+  store,
+  setUiState,
+  onNavigate,
+  onEditProfile,
+  onDeleteProfile,
+  onOpenAuthModal,
+  onSignOut
+}) {
+  const hasSupabase = Boolean(modelo.storageConfig?.supabaseUrl && modelo.storageConfig?.supabaseAnonKey);
+
+  if (myProfile) {
+    const isVerified = store.isProfileVerifiedOwner(myProfile);
+    return el('div', { className: 'card identity-card' }, [
+      el('div', { className: 'identity-card__head' }, [
+        el('span', {
+          className: isVerified ? 'pill pill--verified' : 'pill pill--gold',
+          text: isVerified ? 'Correo verificado' : 'Reconocida en este equipo'
+        }),
+        authUser?.email
+          ? el('button', {
+              type: 'button',
+              className: 'btn btn--ghost btn--sm',
+              text: 'Salir',
+              title: 'Cerrar verificación en este navegador',
+              onClick: () => onSignOut?.()
+            })
+          : null
+      ]),
+      el('strong', { className: 'identity-card__name', text: myProfile.nombre }),
+      el('p', { className: 'muted-xs', text: myProfile.area }),
+      el('div', { className: 'identity-card__actions' }, [
+        el('button', {
+          type: 'button',
+          className: 'btn btn--ghost btn--sm',
+          text: 'Ver mi nodo',
+          onClick: () => setUiState({ selectedNodeId: myProfile.id })
+        }),
+        el('button', {
+          type: 'button',
+          className: 'btn btn--secondary btn--sm',
+          text: 'Editar',
+          onClick: () => onEditProfile?.(myProfile)
+        }),
+        el('button', {
+          type: 'button',
+          className: 'btn btn--danger btn--sm',
+          text: 'Eliminar',
+          onClick: () => onDeleteProfile?.(myProfile)
+        })
+      ])
+    ]);
+  }
+
+  if (authUser?.email) {
+    return el('div', { className: 'card identity-card' }, [
+      el('div', { className: 'identity-card__head' }, [
+        el('span', { className: 'pill pill--verified', text: 'Correo verificado' }),
+        el('button', {
+          type: 'button',
+          className: 'btn btn--ghost btn--sm',
+          text: 'Salir',
+          onClick: () => onSignOut?.()
+        })
+      ]),
+      el('p', {
+        className: 'muted-sm',
+        text: `Sesión verificada (${authUser.email}). Aún no registras una ficha en el mapa.`
+      }),
+      el('div', { className: 'identity-card__actions' }, [
+        el('button', {
+          type: 'button',
+          className: 'btn btn--primary btn--sm',
+          text: 'Responder Entrevista',
+          onClick: () => onNavigate('entrevista')
+        })
+      ])
+    ]);
+  }
+
+  if (!hasSupabase) return null;
+
+  return el('div', { className: 'card identity-card identity-card--prompt' }, [
+    el('strong', { className: 'identity-card__name', text: '¿Ya respondiste la encuesta?' }),
+    el('p', {
+      className: 'muted-xs',
+      text: 'Identifícate con tu correo si abriste desde otro equipo o quieres editar o borrar tu ficha.'
+    }),
+    el('div', { className: 'identity-card__actions' }, [
+      el('button', {
+        type: 'button',
+        className: 'btn btn--ghost btn--sm',
+        text: 'Identificarme con mi correo',
+        onClick: () =>
+          onOpenAuthModal?.({
+            email: '',
+            reason: 'Ingresa el correo con el que respondiste para enviarte un enlace o código de verificación.',
+            afterVerify: { type: 'identify' }
+          })
+      })
+    ])
+  ]);
+}
+
+function renderInsightsSummary({
+  network,
+  modelo,
+  myProfile,
+  authUser,
+  store,
+  setUiState,
+  onNavigate,
+  onEditProfile,
+  onDeleteProfile,
+  onOpenAuthModal,
+  onSignOut
+}) {
+  const identityCard = renderIdentitySidebarCard({
+    modelo,
+    myProfile,
+    authUser,
+    store,
+    setUiState,
+    onNavigate,
+    onEditProfile,
+    onDeleteProfile,
+    onOpenAuthModal,
+    onSignOut
+  });
+
+  const insightsCard = el('div', { className: 'card' }, [
     el('h3', { text: 'Hallazgos en tiempo real' }),
     el('p', { className: 'muted', text: modelo.programa.propositoAcordado }),
     network.insights.topTopics.length
@@ -385,12 +609,26 @@ function renderInsightsSummary(network, modelo) {
       el('p', { className: 'muted-sm', text: 'El dorado resalta pares donde un funcionario ofrece exactamente lo que otro busca aprender o destrabar.' })
     ])
   ]);
+
+  return identityCard ? el('div', { className: 'view-stack' }, [identityCard, insightsCard]) : insightsCard;
 }
 
 /**
  * Vista 2: Entrevista conversacional guiada "SinergIA" (siempre inicia limpia para entrevistar a otro colega, con cronómetro).
  */
-export function renderEntrevistaView({ state, modelo, uiState, setUiState, store, onToast, onNavigate, onStartEncounter }) {
+export function renderEntrevistaView({
+  state,
+  modelo,
+  uiState,
+  setUiState,
+  store,
+  onToast,
+  onNavigate,
+  onStartEncounter,
+  onEditProfile,
+  onDeleteProfile,
+  onOpenAuthModal
+}) {
   const pasos = modelo.entrevistaPasos || [];
   const stepIdx = Math.min(Math.max(0, uiState.interviewStep || 0), pasos.length - 1);
   const currentStep = pasos[stepIdx];
@@ -398,7 +636,16 @@ export function renderEntrevistaView({ state, modelo, uiState, setUiState, store
   if (uiState.interviewCompletedProfileId) {
     const completed = state.profiles.find((p) => p.id === uiState.interviewCompletedProfileId);
     if (completed) {
-      return renderInterviewSuccess(completed, state.profiles, modelo, setUiState, onToast, onNavigate, onStartEncounter);
+      return renderInterviewSuccess(
+        completed,
+        state.profiles,
+        modelo,
+        setUiState,
+        onToast,
+        onNavigate,
+        onStartEncounter,
+        onEditProfile
+      );
     }
   }
 
@@ -407,12 +654,73 @@ export function renderEntrevistaView({ state, modelo, uiState, setUiState, store
     uiState.interviewStartedAt = startedAt;
   }
 
-  const editTargetId = uiState.editingProfileId || state.myProfileId;
+  const myProfile = store.getMyProfile();
+  const editTargetId = uiState.editingProfileId || myProfile?.id || state.myProfileId;
   const targetProfile = state.profiles.find((p) => p.id === editTargetId) || null;
   const isEditing = uiState.interviewMode === 'edit' && Boolean(targetProfile);
-  const draft = isEditing
+  const baseDraft = isEditing
     ? { ...targetProfile, ...(uiState.interviewDraft || {}) }
     : { ...(uiState.interviewDraft || {}) };
+  if (!isEditing && !baseDraft.correo && state.authUser?.email) {
+    baseDraft.correo = state.authUser.email;
+  }
+  const draft = baseDraft;
+
+  const hasSupabase = Boolean(modelo.storageConfig?.supabaseUrl && modelo.storageConfig?.supabaseAnonKey);
+  const identityBanner = !isEditing
+    ? myProfile
+      ? el('div', { className: 'identity-banner' }, [
+          el('div', {}, [
+            el('strong', { text: `Ya estás en el mapa como ${myProfile.nombre}` }),
+            el('p', { className: 'muted-xs', text: `${myProfile.area} · ¿Quieres corregir algo o retirarte de la red?` })
+          ]),
+          el('div', { className: 'identity-banner__actions' }, [
+            el('button', {
+              type: 'button',
+              className: 'btn btn--secondary btn--sm',
+              text: 'Editar mi ficha',
+              onClick: () => onEditProfile?.(myProfile)
+            }),
+            el('button', {
+              type: 'button',
+              className: 'btn btn--danger btn--sm',
+              text: 'Eliminar mi ficha',
+              onClick: () => onDeleteProfile?.(myProfile)
+            }),
+            el('button', {
+              type: 'button',
+              className: 'btn btn--ghost btn--sm',
+              text: 'Ver en mapa',
+              onClick: () => {
+                setUiState({ selectedNodeId: myProfile.id });
+                onNavigate('mapa');
+              }
+            })
+          ])
+        ])
+      : !state.authUser?.email && hasSupabase
+        ? el('div', { className: 'identity-banner identity-banner--muted' }, [
+            el('div', {}, [
+              el('strong', { text: '¿Ya respondiste antes?' }),
+              el('p', {
+                className: 'muted-xs',
+                text: 'Si ingresaste desde otro equipo o quieres editar o borrar tus datos, verifícate con tu correo.'
+              })
+            ]),
+            el('button', {
+              type: 'button',
+              className: 'btn btn--ghost btn--sm',
+              text: 'Identificarme con mi correo',
+              onClick: () =>
+                onOpenAuthModal?.({
+                  email: '',
+                  reason: 'Ingresa el correo con el que respondiste para enviarte un enlace o código de verificación.',
+                  afterVerify: { type: 'identify' }
+                })
+            })
+          ])
+        : null
+    : null;
 
   const timerBadge = isEditing
     ? el('span', { className: 'pill pill--gold', text: `Editando ficha de ${targetProfile.nombre}` })
@@ -433,35 +741,21 @@ export function renderEntrevistaView({ state, modelo, uiState, setUiState, store
 
   const topMeta = el('div', { className: 'interview-meta' }, [
     timerBadge,
-    !isEditing && targetProfile
+    isEditing
       ? el('button', {
           type: 'button',
           className: 'btn btn--ghost btn--sm',
-          text: `Editar ficha anterior (${targetProfile.nombre.split(' ')[0]})`,
+          text: '+ Cancelar edición y entrevistar a otra persona',
           onClick: () =>
             setUiState({
-              interviewMode: 'edit',
-              editingProfileId: targetProfile.id,
+              interviewMode: 'new',
+              editingProfileId: null,
               interviewStep: 0,
-              interviewDraft: { ...targetProfile },
+              interviewDraft: null,
               interviewStartedAt: Date.now()
             })
         })
-      : isEditing
-        ? el('button', {
-            type: 'button',
-            className: 'btn btn--ghost btn--sm',
-            text: '+ Cancelar edición y entrevistar a otra persona',
-            onClick: () =>
-              setUiState({
-                interviewMode: 'new',
-                editingProfileId: null,
-                interviewStep: 0,
-                interviewDraft: null,
-                interviewStartedAt: Date.now()
-              })
-          })
-        : null
+      : null
   ]);
 
   const stepper = el(
@@ -508,7 +802,17 @@ export function renderEntrevistaView({ state, modelo, uiState, setUiState, store
     extraTagsBySource[sourceKey] = collectCommunityTags(state.profiles, sourceKey, baseList);
   }
 
-  formEl.appendChild(buildFormFields(currentStep.campos, modelo, draft, extraTagsBySource));
+  const stepCampos = (currentStep.campos || []).map((campo) =>
+    isEditing && hasSupabase && campo.id === 'correo'
+      ? {
+          ...campo,
+          readOnly: true,
+          hint: 'Tu correo institucional identifica tu ficha de forma segura al editar o eliminar.'
+        }
+      : campo
+  );
+
+  formEl.appendChild(buildFormFields(stepCampos, modelo, draft, extraTagsBySource));
 
   const errorBox = el('div', { className: 'form-errors', hidden: true });
   formEl.appendChild(errorBox);
@@ -584,8 +888,29 @@ export function renderEntrevistaView({ state, modelo, uiState, setUiState, store
       delete mergedDraft.macroNombre;
     }
 
-    const markAsMine = !isEditing || targetProfile.id === state.myProfileId;
-    const result = await store.saveMyInterview(mergedDraft, { markAsMine });
+    const markAsMine = !isEditing || store.isProfileMine(targetProfile);
+    const result = await store.saveMyInterview(mergedDraft, { markAsMine, isEditing });
+
+    if (result.remoteMode === 'blocked') {
+      if (result.remoteErrorCode === 'DUPLICATE_EMAIL' || result.remoteErrorCode === 'AUTH_REQUIRED') {
+        const pendingPayload = { type: 'save_draft', draft: mergedDraft, isEditing: true };
+        savePendingAction(pendingPayload);
+        setUiState({ interviewDraft: mergedDraft });
+        onOpenAuthModal?.({
+          email: mergedDraft.correo,
+          reason:
+            result.remoteErrorCode === 'DUPLICATE_EMAIL'
+              ? `Ya existe una ficha registrada con ${mergedDraft.correo}. Confirma tu correo para actualizarla sin perder lo que escribiste.`
+              : 'Confirma tu correo con un enlace o código temporal para guardar estos cambios.',
+          afterVerify: pendingPayload
+        });
+        return;
+      }
+      setUiState({ interviewDraft: mergedDraft });
+      onToast(result.remoteError || 'No se pudo guardar en la nube.', true);
+      return;
+    }
+
     if (result.remoteError) {
       onToast(`Guardado local OK. Nota nube: ${result.remoteError}`, true);
     } else if (isEditing) {
@@ -610,10 +935,10 @@ export function renderEntrevistaView({ state, modelo, uiState, setUiState, store
     submitInterview(false);
   });
 
-  return el('div', { className: 'card interview-card' }, [topMeta, stepper, bubble, formEl]);
+  return el('div', { className: 'card interview-card' }, [identityBanner, topMeta, stepper, bubble, formEl]);
 }
 
-function renderInterviewSuccess(profile, allProfiles, modelo, setUiState, onToast, onNavigate, onStartEncounter) {
+function renderInterviewSuccess(profile, allProfiles, modelo, setUiState, onToast, onNavigate, onStartEncounter, onEditProfile) {
   const matches = suggestMatches(profile, allProfiles).filter((m) => m.analysis.score > 0).slice(0, 4);
   const shareUrl = buildShareUrl(profile);
 
@@ -625,7 +950,7 @@ function renderInterviewSuccess(profile, allProfiles, modelo, setUiState, onToas
     el('h2', { text: `¡Gracias, ${profile.nombre}!` }),
     el('p', {
       className: 'muted',
-      text: 'Tus respuestas ya aparecen en el Mapa SinergIA y en la vista sobre el Organigrama.'
+      text: 'Tus respuestas ya aparecen en el Mapa SinergIA y en la vista sobre el Organigrama. Si luego quieres corregir o retirar tu ficha, podrás hacerlo verificando tu correo.'
     }),
     el('div', { className: 'success-actions' }, [
       el('button', {
@@ -637,6 +962,17 @@ function renderInterviewSuccess(profile, allProfiles, modelo, setUiState, onToas
           onNavigate('mapa');
         }
       }),
+      onEditProfile
+        ? el('button', {
+            type: 'button',
+            className: 'btn btn--ghost',
+            text: 'Editar mi ficha',
+            onClick: () => {
+              setUiState({ interviewCompletedProfileId: null });
+              onEditProfile(profile);
+            }
+          })
+        : null,
       el('button', {
         type: 'button',
         className: 'btn btn--secondary',
@@ -1328,4 +1664,221 @@ export function renderQuienesSomosView({ modelo, onNavigate }) {
   ]);
 
   return el('div', { className: 'view-stack' }, [heroCard, pillarsGrid, trustCard]);
+}
+
+/**
+ * Modal de verificación de correo vía Supabase Auth (Magic Link + código OTP).
+ */
+export function renderAuthModal({ modalState, modelo, setModalPatch, onClose, onAuthenticated, onToast }) {
+  if (!modalState) return null;
+
+  const cfg = modelo.storageConfig || {};
+  const isOtpStep = modalState.step === 'otp';
+  const isBusy = Boolean(modalState.sending || modalState.verifying);
+
+  const emailInput = el('input', {
+    type: 'email',
+    required: true,
+    placeholder: 'tu.correo@organizacion.cl',
+    value: modalState.email || '',
+    readOnly: isOtpStep,
+    className: isOtpStep ? 'is-readonly' : ''
+  });
+
+  const otpInput = isOtpStep
+    ? el('input', {
+        type: 'text',
+        inputmode: 'numeric',
+        autocomplete: 'one-time-code',
+        className: 'modal-otp-input',
+        placeholder: '123456',
+        maxlength: '12'
+      })
+    : null;
+
+  async function sendOtp(emailValue) {
+    const cleanEmail = String(emailValue || '').trim().toLowerCase();
+    setModalPatch({ sending: true, error: '', email: cleanEmail });
+    try {
+      if (modalState.afterVerify) {
+        savePendingAction({ ...modalState.afterVerify, email: cleanEmail });
+      }
+      await requestEmailOtp(cfg, cleanEmail);
+      setModalPatch({ sending: false, step: 'otp', email: cleanEmail, error: '' });
+      onToast(`Enviamos el enlace/código de verificación a ${cleanEmail}.`);
+    } catch (err) {
+      setModalPatch({ sending: false, error: err.message });
+    }
+  }
+
+  async function verifyCode() {
+    const code = otpInput?.value || '';
+    setModalPatch({ verifying: true, error: '' });
+    try {
+      const session = await verifyEmailOtp(cfg, modalState.email, code);
+      setModalPatch({ verifying: false });
+      await onAuthenticated(session);
+    } catch (err) {
+      setModalPatch({ verifying: false, error: err.message });
+    }
+  }
+
+  const formEl = el('form', { className: 'modal-card__form', noValidate: true }, [
+    el('div', { className: 'form-field' }, [
+      el('label', { text: 'Correo institucional o laboral' }),
+      emailInput
+    ]),
+    isOtpStep
+      ? el('div', { className: 'form-field' }, [
+          el('label', { text: 'Código numérico (si aparece en tu correo)' }),
+          otpInput,
+          el('p', {
+            className: 'muted-xs',
+            text: `También enviamos un enlace directo a ${modalState.email}: puedes hacer clic en el correo y volverás automáticamente con tu ficha reconocida.`
+          })
+        ])
+      : null,
+    modalState.error
+      ? el('div', { className: 'form-errors' }, [el('p', { text: modalState.error })])
+      : null,
+    el('div', { className: 'modal-card__actions' }, [
+      isOtpStep
+        ? el('button', {
+            type: 'button',
+            className: 'btn btn--ghost btn--sm',
+            disabled: isBusy,
+            text: 'Cambiar correo',
+            onClick: () => setModalPatch({ step: 'email', error: '' })
+          })
+        : null,
+      isOtpStep
+        ? el('button', {
+            type: 'button',
+            className: 'btn btn--ghost btn--sm',
+            disabled: isBusy,
+            text: modalState.sending ? 'Reenviando...' : 'Reenviar',
+            onClick: () => sendOtp(modalState.email)
+          })
+        : null,
+      el('button', {
+        type: 'button',
+        className: 'btn btn--ghost',
+        disabled: isBusy,
+        text: 'Cancelar',
+        onClick: () => onClose()
+      }),
+      el('button', {
+        type: 'submit',
+        className: 'btn btn--primary',
+        disabled: isBusy,
+        text: isOtpStep
+          ? modalState.verifying
+            ? 'Verificando...'
+            : 'Verificar código'
+          : modalState.sending
+            ? 'Enviando...'
+            : 'Enviar enlace / código'
+      })
+    ])
+  ]);
+
+  formEl.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (isOtpStep) verifyCode();
+    else sendOtp(emailInput.value);
+  });
+
+  const backdrop = el(
+    'div',
+    {
+      className: 'modal-backdrop',
+      role: 'dialog',
+      'aria-modal': 'true',
+      onClick: (e) => {
+        if (e.target === backdrop && !isBusy) onClose();
+      }
+    },
+    [
+      el('div', { className: 'modal-card' }, [
+        el('div', { className: 'modal-card__head' }, [
+          el('h3', { text: isOtpStep ? 'Revisa tu correo' : 'Verifica tu correo' }),
+          el('button', {
+            type: 'button',
+            className: 'modal-card__close',
+            'aria-label': 'Cerrar',
+            disabled: isBusy,
+            text: '×',
+            onClick: () => onClose()
+          })
+        ]),
+        el('p', {
+          className: 'muted-sm',
+          text:
+            modalState.reason ||
+            'Confirma que eres la persona dueña de este correo para editar o retirar tu ficha del mapa.'
+        }),
+        formEl
+      ])
+    ]
+  );
+
+  return backdrop;
+}
+
+/**
+ * Modal de confirmación segura antes de eliminar una ficha de la red.
+ */
+export function renderDeleteModal({ deleteState, onConfirmDelete, onClose }) {
+  if (!deleteState?.profile) return null;
+  const { profile, deleting, error } = deleteState;
+
+  const backdrop = el(
+    'div',
+    {
+      className: 'modal-backdrop',
+      role: 'dialog',
+      'aria-modal': 'true',
+      onClick: (e) => {
+        if (e.target === backdrop && !deleting) onClose();
+      }
+    },
+    [
+      el('div', { className: 'modal-card' }, [
+        el('div', { className: 'modal-card__head' }, [
+          el('h3', { text: '¿Retirar tu ficha del mapa?' }),
+          el('button', {
+            type: 'button',
+            className: 'modal-card__close',
+            'aria-label': 'Cerrar',
+            disabled: deleting,
+            text: '×',
+            onClick: () => onClose()
+          })
+        ]),
+        el('p', {
+          className: 'muted-sm',
+          text: `Se eliminará la ficha de ${profile.nombre} (${profile.area}) de la red compartida. Si quieres volver más adelante, podrás responder la entrevista nuevamente.`
+        }),
+        error ? el('div', { className: 'form-errors' }, [el('p', { text: error })]) : null,
+        el('div', { className: 'modal-card__actions' }, [
+          el('button', {
+            type: 'button',
+            className: 'btn btn--ghost',
+            disabled: deleting,
+            text: 'Cancelar',
+            onClick: () => onClose()
+          }),
+          el('button', {
+            type: 'button',
+            className: 'btn btn--danger',
+            disabled: deleting,
+            text: deleting ? 'Eliminando...' : 'Sí, eliminar mi ficha',
+            onClick: () => onConfirmDelete(profile)
+          })
+        ])
+      ])
+    ]
+  );
+
+  return backdrop;
 }
