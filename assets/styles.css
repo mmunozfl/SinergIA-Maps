@@ -119,6 +119,9 @@ p {
 .topbar__right {
   display: flex;
   align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .nav-tabs {
@@ -936,7 +939,7 @@ input:focus, select:focus, textarea:focus {
   border: 1px solid rgba(255, 255, 255, 0.22);
   backdrop-filter: blur(8px);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  margin: 0 0.5rem;
+  margin: 0;
   flex: 0 1 auto;
 }
 
@@ -1040,6 +1043,113 @@ input:focus, select:focus, textarea:focus {
   cursor: grabbing;
   transition: none;
   box-shadow: 0 20px 44px rgba(0, 74, 138, 0.18);
+}
+
+/* Efectos visuales de deslizamiento y conexión */
+@keyframes deckSwipeLeft {
+  to {
+    transform: translate3d(-125%, 15px, 0) rotate(-14deg);
+    opacity: 0;
+  }
+}
+
+@keyframes deckPulseConnect {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+  }
+  45% {
+    transform: scale(1.045);
+    box-shadow: 0 0 0 20px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 12px 32px rgba(5, 150, 105, 0.14);
+  }
+}
+
+.deck-card.is-swiping-left {
+  animation: deckSwipeLeft 0.32s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  pointer-events: none;
+}
+
+.deck-card.is-swiping-right {
+  animation: deckPulseConnect 0.46s cubic-bezier(0.2, 0.8, 0.2, 1);
+  border-color: #10b981;
+}
+
+/* Animaciones del mapa vivo al aparecer nuevo nodo y pulso de red */
+@keyframes nodePopEnter {
+  0% {
+    transform: scale(0.1);
+    opacity: 0;
+  }
+  65% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes networkPulse {
+  0% {
+    stroke-width: 2px;
+    filter: drop-shadow(0 0 0px var(--ucm-celeste));
+  }
+  50% {
+    stroke-width: 4.2px;
+    filter: drop-shadow(0 0 8px var(--ucm-gold));
+  }
+  100% {
+    stroke-width: 2px;
+    filter: drop-shadow(0 0 0px var(--ucm-celeste));
+  }
+}
+
+.node--pop-enter {
+  animation: nodePopEnter 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.edge--pulse {
+  animation: networkPulse 1.6s cubic-bezier(0.4, 0, 0.2, 1) 2;
+}
+
+/* Badges interactivos de afinidad humana sobre las líneas azules */
+.affinity-badge-group {
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.affinity-badge-group:hover {
+  transform: scale(1.08);
+  filter: drop-shadow(0 2px 6px rgba(0, 58, 112, 0.3));
+}
+
+.affinity-badge-rect {
+  fill: #004a8a;
+  stroke: #ffffff;
+  stroke-width: 1.2;
+  opacity: 0.92;
+  transition: fill 0.15s ease;
+}
+
+.affinity-badge-group:hover .affinity-badge-rect {
+  fill: #002b54;
+  stroke: #f6ad55;
+  stroke-width: 1.6;
+}
+
+.affinity-badge-text {
+  fill: #ffffff;
+  font-size: 8.5px;
+  font-weight: 700;
+  font-family: system-ui, -apple-system, sans-serif;
+  pointer-events: none;
+  user-select: none;
 }
 
 .deck-card.is-connected {
@@ -1864,12 +1974,11 @@ input.is-readonly {
   }
   .topbar__right {
     align-items: flex-start;
+    flex-wrap: wrap;
   }
   .topbar-conecta-controls {
-    order: 3;
-    width: 100%;
-    margin: 0.35rem 0 0 0;
-    justify-content: space-between;
+    margin: 0;
+    justify-content: flex-start;
   }
 }
 

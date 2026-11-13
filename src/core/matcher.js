@@ -84,7 +84,8 @@ export function analyzePairSynergy(a, b) {
     subEdges.push({
       kind: 'afinidades',
       direction: 'both',
-      reasons: [`Afinidad humana: ${sharedHuman.join(', ')}`]
+      reasons: [`Afinidad humana: ${sharedHuman.join(', ')}`],
+      affinities: sharedHuman
     });
   }
 

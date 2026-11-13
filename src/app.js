@@ -80,6 +80,7 @@ async function bootstrap() {
     interviewDraft: null,
     interviewStartedAt: Date.now(),
     interviewCompletedProfileId: null,
+    newlyJoinedProfileId: null,
     deckIndex: 0,
     deckFilterMacro: '',
     deckSavedOnly: false,
@@ -481,8 +482,8 @@ async function bootstrap() {
               ])
             ]
           ),
-          conectaControls,
           el('div', { className: 'topbar__right' }, [
+            conectaControls,
             el(
               'nav',
               { className: 'nav-tabs', 'aria-label': 'Navegación principal' },
@@ -588,8 +589,21 @@ async function bootstrap() {
     }
   });
 
-  store.subscribe(() => {
+  let previousProfileIds = new Set();
+  store.subscribe((state) => {
     if (isEditingActiveForm()) return;
+    const currentProfiles = state?.profiles || [];
+    if (previousProfileIds.size > 0 && currentProfiles.length > previousProfileIds.size) {
+      const addedProfile = currentProfiles.find((p) => !previousProfileIds.has(p.id));
+      if (addedProfile) {
+        uiState.newlyJoinedProfileId = addedProfile.id;
+        setTimeout(() => {
+          uiState.newlyJoinedProfileId = null;
+          render();
+        }, 3500);
+      }
+    }
+    previousProfileIds = new Set(currentProfiles.map((p) => p.id));
     render();
   });
 
@@ -598,6 +612,7 @@ async function bootstrap() {
   clearDefaultMapHash();
   render();
   await store.syncFromSources();
+  previousProfileIds = new Set((store.getState()?.profiles || []).map((p) => p.id));
 
   if (authCallback.status === 'authenticated') {
     await handleAuthCompleted(authCallback.session);

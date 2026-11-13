@@ -138,7 +138,9 @@ function renderOrganigramaOverlay(
   palette,
   selectedIds = [],
   myProfileId = null,
-  onSelectNode = null
+  onSelectNode = null,
+  onSelectPair = null,
+  newlyJoinedProfileId = null
 ) {
   const selectedSet = new Set(
     Array.isArray(selectedIds) ? selectedIds : selectedIds ? [selectedIds] : []
@@ -298,9 +300,11 @@ function renderOrganigramaOverlay(
         const isSelected = selectedSet.has(user.id);
         const isMine = user.id === myProfileId;
 
+        const isNewlyJoined = newlyJoinedProfileId && user.id === newlyJoinedProfileId;
         const ug = svgEl('g', {
           transform: `translate(${chipX}, ${chipY})`,
-          style: 'cursor: pointer;'
+          style: 'cursor: pointer;',
+          class: isNewlyJoined ? 'node-group node--pop-enter' : 'node-group'
         });
 
         ug.appendChild(
@@ -436,8 +440,61 @@ function renderOrganigramaOverlay(
       }
 
       const path = svgEl('path', pathAttrs);
+      if (newlyJoinedProfileId) {
+        path.classList.add('edge--pulse');
+      }
       path.appendChild(svgEl('title', {}, (sub.reasons || edge.reasons).join(' · ')));
       edgesLayer.appendChild(path);
+
+      // Casillas/etiquetas interactivas de afinidad humana compartida (hasta 2) en Organigrama
+      if (sub.kind === 'afinidades' && Array.isArray(sub.affinities) && sub.affinities.length) {
+        const affinities = sub.affinities.slice(0, 2);
+        const badgeG = svgEl('g', {
+          class: 'affinity-badge-group',
+          style: 'cursor: pointer;'
+        });
+
+        // Punto medio de la curva cuadrática (t = 0.5)
+        const bMidX = 0.25 * startX + 0.5 * midX + 0.25 * endX;
+        const bMidY = 0.25 * startY + 0.5 * midY + 0.25 * endY;
+
+        let badgeOffsetY = -((affinities.length * 19) / 2);
+        affinities.forEach((aff) => {
+          const labelText = aff.length > 15 ? aff.slice(0, 14) + '…' : aff;
+          const approxWidth = Math.max(54, labelText.length * 6.8 + 14);
+          const bx = bMidX - approxWidth / 2;
+          const by = bMidY + badgeOffsetY;
+
+          const pillRect = svgEl('rect', {
+            x: bx,
+            y: by,
+            width: approxWidth,
+            height: 17,
+            rx: 8.5,
+            class: 'affinity-badge-rect'
+          });
+
+          const pillText = svgEl('text', {
+            x: bMidX,
+            y: by + 12,
+            'text-anchor': 'middle',
+            class: 'affinity-badge-text'
+          }, `✨ ${labelText}`);
+
+          badgeG.appendChild(pillRect);
+          badgeG.appendChild(pillText);
+          badgeOffsetY += 20;
+        });
+
+        badgeG.appendChild(svgEl('title', {}, `Afinidad humana entre colegas: ${sub.affinities.join(', ')}. Clic para comparar.`));
+        if (onSelectPair) {
+          badgeG.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onSelectPair(edge.sourceId, edge.targetId);
+          });
+        }
+        edgesLayer.appendChild(badgeG);
+      }
     });
   }
 
@@ -454,8 +511,10 @@ export function renderSynergyDiagram({
   selectedId = null,
   selectedIds = [],
   myProfileId = null,
+  newlyJoinedProfileId = null,
   onNewInterview = null,
   onSelectNode,
+  onSelectPair = null,
   onToggleMode,
   onExportSvg
 }) {
@@ -582,7 +641,9 @@ export function renderSynergyDiagram({
       palette,
       activeSelectedIds,
       myProfileId,
-      onSelectNode
+      onSelectNode,
+      onSelectPair,
+      newlyJoinedProfileId
     );
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
     bgRect.setAttribute('height', String(height));
@@ -691,9 +752,62 @@ export function renderSynergyDiagram({
         }
 
         const path = svgEl('path', pathAttrs);
+        if (newlyJoinedProfileId) {
+          path.classList.add('edge--pulse');
+        }
         path.appendChild(svgEl('title', {}, (sub.reasons || edge.reasons).join(' · ')));
         edgesLayer.appendChild(path);
         edgeNodes.push({ edge, sub, path });
+
+        // Casillas/etiquetas interactivas de afinidad humana compartida (hasta 2) sobre la línea azul
+        if (sub.kind === 'afinidades' && Array.isArray(sub.affinities) && sub.affinities.length) {
+          const affinities = sub.affinities.slice(0, 2);
+          const badgeG = svgEl('g', {
+            class: 'affinity-badge-group',
+            style: 'cursor: pointer;'
+          });
+
+          // Punto medio de la curva Bezier cuadrática (t = 0.5)
+          const bMidX = 0.25 * startX + 0.5 * cpx + 0.25 * endX;
+          const bMidY = 0.25 * startY + 0.5 * cpy + 0.25 * endY;
+
+          let badgeOffsetY = -((affinities.length * 19) / 2);
+          affinities.forEach((aff) => {
+            const labelText = aff.length > 15 ? aff.slice(0, 14) + '…' : aff;
+            const approxWidth = Math.max(54, labelText.length * 6.8 + 14);
+            const bx = bMidX - approxWidth / 2;
+            const by = bMidY + badgeOffsetY;
+
+            const pillRect = svgEl('rect', {
+              x: bx,
+              y: by,
+              width: approxWidth,
+              height: 17,
+              rx: 8.5,
+              class: 'affinity-badge-rect'
+            });
+
+            const pillText = svgEl('text', {
+              x: bMidX,
+              y: by + 12,
+              'text-anchor': 'middle',
+              class: 'affinity-badge-text'
+            }, `✨ ${labelText}`);
+
+            badgeG.appendChild(pillRect);
+            badgeG.appendChild(pillText);
+            badgeOffsetY += 20;
+          });
+
+          badgeG.appendChild(svgEl('title', {}, `Afinidad humana entre colegas: ${sub.affinities.join(', ')}. Clic para comparar.`));
+          if (onSelectPair) {
+            badgeG.addEventListener('click', (e) => {
+              e.stopPropagation();
+              onSelectPair(edge.sourceId, edge.targetId);
+            });
+          }
+          edgesLayer.appendChild(badgeG);
+        }
       });
     }
 
@@ -705,10 +819,12 @@ export function renderSynergyDiagram({
       if (!pos) continue;
       const isSelected = selectedSet.has(node.id);
       const isMine = node.id === myProfileId;
+      const isNewlyJoined = newlyJoinedProfileId && node.id === newlyJoinedProfileId;
 
       const g = svgEl('g', {
         transform: `translate(${pos.x - cardW / 2}, ${pos.y - cardH / 2})`,
-        style: 'cursor: pointer;'
+        style: 'cursor: pointer;',
+        class: isNewlyJoined ? 'node-group node--pop-enter' : 'node-group'
       });
 
       g.appendChild(

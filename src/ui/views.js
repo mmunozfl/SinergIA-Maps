@@ -98,13 +98,20 @@ function attachHorizontalSwipe(cardEl, { onSwipeLeft, onSwipeRight, isDisabled }
     dragging = false;
     activePointerId = null;
     if (dx >= 85) {
-      resetVisual();
-      onSwipeRight();
+      cardEl.classList.remove('is-dragging');
+      if (stampLeft) stampLeft.style.opacity = '0';
+      if (stampRight) stampRight.style.opacity = '0';
+      cardEl.style.transform = '';
+      cardEl.classList.add('is-swiping-right');
+      cardEl.addEventListener('animationend', () => onSwipeRight(), { once: true });
       return;
     }
     if (dx <= -85) {
-      resetVisual();
-      onSwipeLeft();
+      cardEl.classList.remove('is-dragging');
+      if (stampLeft) stampLeft.style.opacity = '0';
+      if (stampRight) stampRight.style.opacity = '0';
+      cardEl.classList.add('is-swiping-left');
+      cardEl.addEventListener('animationend', () => onSwipeLeft(), { once: true });
       return;
     }
     resetVisual();
@@ -327,7 +334,14 @@ export function renderMapaView({
       selectedIds,
       selectedId: selectedIds[0] || null,
       myProfileId: state.myProfileId,
+      newlyJoinedProfileId: uiState.newlyJoinedProfileId || null,
       onNewInterview: () => onNavigate('entrevista'),
+      onSelectPair: (idA, idB) => {
+        setUiState({
+          selectedNodeIds: [idA, idB],
+          selectedNodeId: idA
+        });
+      },
       onSelectNode: (nodeId) => {
         let current = Array.isArray(uiState.selectedNodeIds) && uiState.selectedNodeIds.length
           ? [...uiState.selectedNodeIds]
@@ -1117,8 +1131,14 @@ export function renderEntrevistaView({
       interviewStep: 0,
       interviewStartedAt: null,
       interviewCompletedProfileId: result.profile.id,
+      newlyJoinedProfileId: !isEditing ? result.profile.id : null,
       selectedNodeId: result.profile.id
     });
+    if (!isEditing) {
+      setTimeout(() => {
+        setUiState({ newlyJoinedProfileId: null });
+      }, 3500);
+    }
   }
 
   formEl.addEventListener('submit', (e) => {
@@ -1445,7 +1465,11 @@ export function renderCrucesView({
       className: 'deck-btn deck-btn--skip',
       'aria-label': 'Pasar al siguiente colega',
       title: 'Pasar al siguiente (flecha izquierda)',
-      onClick: advanceDeck
+      onClick: () => {
+        if (cardEl.classList.contains('is-swiping-left')) return;
+        cardEl.classList.add('is-swiping-left');
+        cardEl.addEventListener('animationend', () => advanceDeck(), { once: true });
+      }
     });
     btnSkip.appendChild(svgIcon(['M18 6L6 18', 'M6 6l12 12'], { strokeWidth: 2.8 }));
 
@@ -1472,7 +1496,11 @@ export function renderCrucesView({
       className: isConnected ? 'deck-btn deck-btn--connect is-active' : 'deck-btn deck-btn--connect',
       'aria-label': 'Conectar por Teams',
       title: 'Conectar con este colega (flecha derecha)',
-      onClick: () => setUiState({ deckConnectedId: current.id })
+      onClick: () => {
+        if (cardEl.classList.contains('is-swiping-right')) return;
+        cardEl.classList.add('is-swiping-right');
+        cardEl.addEventListener('animationend', () => setUiState({ deckConnectedId: current.id }), { once: true });
+      }
     });
     btnConnect.appendChild(svgIcon(['M20 6L9 17l-5-5'], { strokeWidth: 3 }));
 
