@@ -446,8 +446,16 @@ function renderOrganigramaOverlay(
       path.appendChild(svgEl('title', {}, (sub.reasons || edge.reasons).join(' · ')));
       edgesLayer.appendChild(path);
 
-      // Casillas/etiquetas interactivas de afinidad humana compartida (hasta 2) en Organigrama
-      if (sub.kind === 'afinidades' && Array.isArray(sub.affinities) && sub.affinities.length) {
+      // Casillas/etiquetas de afinidad humana compartida (hasta 2) visibles únicamente cuando se seleccionan 2 colegas
+      const showAffinityBadges =
+        selectedSet.size === 2 &&
+        selectedSet.has(edge.sourceId) &&
+        selectedSet.has(edge.targetId) &&
+        sub.kind === 'afinidades' &&
+        Array.isArray(sub.affinities) &&
+        sub.affinities.length;
+
+      if (showAffinityBadges) {
         const affinities = sub.affinities.slice(0, 2);
         const badgeG = svgEl('g', {
           class: 'affinity-badge-group',
@@ -486,13 +494,7 @@ function renderOrganigramaOverlay(
           badgeOffsetY += 20;
         });
 
-        badgeG.appendChild(svgEl('title', {}, `Afinidad humana entre colegas: ${sub.affinities.join(', ')}. Clic para comparar.`));
-        if (onSelectPair) {
-          badgeG.addEventListener('click', (e) => {
-            e.stopPropagation();
-            onSelectPair(edge.sourceId, edge.targetId);
-          });
-        }
+        badgeG.appendChild(svgEl('title', {}, `Afinidad humana entre colegas: ${sub.affinities.join(', ')}`));
         edgesLayer.appendChild(badgeG);
       }
     });
@@ -759,8 +761,16 @@ export function renderSynergyDiagram({
         edgesLayer.appendChild(path);
         edgeNodes.push({ edge, sub, path });
 
-        // Casillas/etiquetas interactivas de afinidad humana compartida (hasta 2) sobre la línea azul
-        if (sub.kind === 'afinidades' && Array.isArray(sub.affinities) && sub.affinities.length) {
+        // Casillas/etiquetas de afinidad humana compartida (hasta 2) visibles únicamente cuando se seleccionan 2 colegas
+        const showAffinityBadges =
+          selectedSet.size === 2 &&
+          selectedSet.has(edge.sourceId) &&
+          selectedSet.has(edge.targetId) &&
+          sub.kind === 'afinidades' &&
+          Array.isArray(sub.affinities) &&
+          sub.affinities.length;
+
+        if (showAffinityBadges) {
           const affinities = sub.affinities.slice(0, 2);
           const badgeG = svgEl('g', {
             class: 'affinity-badge-group',
@@ -799,13 +809,7 @@ export function renderSynergyDiagram({
             badgeOffsetY += 20;
           });
 
-          badgeG.appendChild(svgEl('title', {}, `Afinidad humana entre colegas: ${sub.affinities.join(', ')}. Clic para comparar.`));
-          if (onSelectPair) {
-            badgeG.addEventListener('click', (e) => {
-              e.stopPropagation();
-              onSelectPair(edge.sourceId, edge.targetId);
-            });
-          }
+          badgeG.appendChild(svgEl('title', {}, `Afinidad humana entre colegas: ${sub.affinities.join(', ')}`));
           edgesLayer.appendChild(badgeG);
         }
       });
