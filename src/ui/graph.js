@@ -109,19 +109,80 @@ function computePositionsRed(nodes, width, height) {
   const ordered = [...nodes].sort(
     (a, b) => (a.macroId || '').localeCompare(b.macroId || '') || a.nombre.localeCompare(b.nombre)
   );
-  const rx = Math.min(370, Math.max(210, count * 22));
-  const ry = Math.min(205, Math.max(135, count * 14));
+
   const cx = width / 2;
   const cy = height / 2;
+  const cardW = 156;
+  const cardH = 52;
+  const padX = cardW + 18; // separación mínima horizontal requerida
+  const padY = cardH + 16; // separación mínima vertical requerida
 
+  // Si hay más nodos, distribuimos en anillos concéntricos o en óvalo espaciado
+  // Anillo exterior vs anillo interior alternado
+  const numRings = count > 18 ? 3 : count > 9 ? 2 : 1;
+  const rxBase = Math.min(width / 2 - cardW / 2 - 20, Math.max(340, count * 24));
+  const ryBase = Math.min(height / 2 - cardH / 2 - 25, Math.max(200, count * 15));
+
+  const items = [];
   ordered.forEach((node, idx) => {
-    const angle = (2 * Math.PI * idx) / count - Math.PI / 2;
-    const ringOffset = count > 14 && idx % 2 === 1 ? 0.66 : 1;
-    positions.set(node.id, {
-      x: cx + rx * ringOffset * Math.cos(angle),
-      y: cy + ry * ringOffset * Math.sin(angle)
+    let ringFraction = 1;
+    let angle = (2 * Math.PI * idx) / count - Math.PI / 2;
+
+    if (numRings === 2) {
+      ringFraction = idx % 2 === 0 ? 1 : 0.62;
+    } else if (numRings === 3) {
+      const ringIdx = idx % 3;
+      ringFraction = ringIdx === 0 ? 1 : ringIdx === 1 ? 0.72 : 0.46;
+    }
+
+    const rx = rxBase * ringFraction;
+    const ry = ryBase * ringFraction;
+
+    items.push({
+      id: node.id,
+      x: cx + rx * Math.cos(angle),
+      y: cy + ry * Math.sin(angle)
     });
   });
+
+  // Algoritmo de relajación de colisiones (fuerzas de repulsión entre tarjetas rectangulares)
+  // Previene que 2 rectángulos de tamaño cardW x cardH se solapen
+  const iterations = 45;
+  for (let it = 0; it < iterations; it++) {
+    for (let i = 0; i < items.length; i++) {
+      for (let j = i + 1; j < items.length; j++) {
+        const a = items[i];
+        const b = items[j];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const overlapX = padX - Math.abs(dx);
+        const overlapY = padY - Math.abs(dy);
+
+        if (overlapX > 0 && overlapY > 0) {
+          // Si se están solapando en ambas dimensiones, empujar en la dirección del menor solapamiento
+          if (overlapX < overlapY) {
+            const shift = (overlapX / 2) * (dx >= 0 ? 1 : -1);
+            a.x -= shift;
+            b.x += shift;
+          } else {
+            const shift = (overlapY / 2) * (dy >= 0 ? 1 : -1);
+            a.y -= shift;
+            b.y += shift;
+          }
+        }
+      }
+    }
+
+    // Mantener dentro de los bordes seguros del lienzo
+    for (const item of items) {
+      item.x = Math.max(cardW / 2 + 16, Math.min(width - cardW / 2 - 16, item.x));
+      item.y = Math.max(cardH / 2 + 20, Math.min(height - cardH / 2 - 20, item.y));
+    }
+  }
+
+  for (const item of items) {
+    positions.set(item.id, { x: item.x, y: item.y });
+  }
 
   return positions;
 }
@@ -527,8 +588,8 @@ export function renderSynergyDiagram({
       : [];
   const selectedSet = new Set(activeSelectedIds);
   const palette = modelo.paletaOficial;
-  const width = mode === 'organigrama' ? 1120 : 980;
-  let height = mode === 'organigrama' ? 720 : 540;
+  const width = mode === 'organigrama' ? 1120 : Math.max(980, 850 + network.nodes.length * 18);
+  let height = mode === 'organigrama' ? 720 : Math.max(540, 480 + network.nodes.length * 12);
   let zoom = 1;
   const isEmptyRed = !network.nodes.length && mode === 'red';
   let svg = null;
@@ -655,8 +716,8 @@ export function renderSynergyDiagram({
       svgEl('ellipse', {
         cx: width / 2,
         cy: height / 2,
-        rx: 340,
-        ry: 195,
+        rx: Math.min(width / 2 - 100, Math.max(340, network.nodes.length * 24)),
+        ry: Math.min(height / 2 - 70, Math.max(195, network.nodes.length * 15)),
         fill: 'none',
         stroke: palette.celesteSuave,
         'stroke-width': 2,
