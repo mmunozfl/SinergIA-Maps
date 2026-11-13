@@ -1367,9 +1367,53 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--ucm-celeste-border);
 }
 
-.deck-btn--save:hover,
+@keyframes deckPulseSave {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    box-shadow: 0 0 0 0 rgba(246, 173, 85, 0.6);
+  }
+  40% {
+    transform: translate3d(0, 16px, 0) scale(0.985);
+    box-shadow: 0 0 0 16px rgba(246, 173, 85, 0.35);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    box-shadow: 0 12px 30px rgba(0, 74, 138, 0.10);
+  }
+}
+
+@keyframes saveBtnStarPop {
+  0% {
+    transform: scale(0.8);
+  }
+  45% {
+    transform: scale(1.38) rotate(-12deg);
+    box-shadow: 0 0 0 16px rgba(246, 173, 85, 0.4);
+    background: #fef3c7;
+    border-color: var(--ucm-gold);
+    color: #b45309;
+  }
+  75% {
+    transform: scale(1.12) rotate(6deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.deck-card.is-saving {
+  animation: deckPulseSave 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+  border-color: var(--ucm-gold);
+}
+
+.deck-btn--save.is-animating {
+  animation: saveBtnStarPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
 .deck-btn--save.is-saved {
-  background: var(--ucm-celeste-soft);
+  background: #fef3c7;
+  color: #d97706;
+  border-color: var(--ucm-gold);
 }
 
 .deck-btn--connect {

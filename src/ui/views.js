@@ -1452,6 +1452,41 @@ export function renderCrucesView({
       ])
     ]);
 
+    let btnSave = null;
+    let lblSave = null;
+
+    const triggerSave = () => {
+      const added = store.toggleSavedProfile(current.id);
+      onToast(added ? `${current.nombre} guardado en tus favoritos.` : `${current.nombre} quitado de favoritos.`);
+
+      // Efecto en la tarjeta (pulso hacia abajo y destello dorado)
+      cardEl.classList.remove('is-saving');
+      void cardEl.offsetWidth; // Reflujo para reiniciar animación
+      cardEl.classList.add('is-saving');
+      cardEl.addEventListener('animationend', () => cardEl.classList.remove('is-saving'), { once: true });
+
+      // Efecto destacado en el botón de guardar
+      if (btnSave) {
+        btnSave.classList.toggle('is-saved', added);
+        btnSave.classList.remove('is-animating');
+        void btnSave.offsetWidth;
+        btnSave.classList.add('is-animating');
+        btnSave.addEventListener('animationend', () => btnSave.classList.remove('is-animating'), { once: true });
+
+        // Actualizar icono SVG (relleno dorado si está guardado)
+        btnSave.replaceChildren(
+          svgIcon(['M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z'], {
+            fill: added ? 'currentColor' : 'none',
+            strokeWidth: 2.3,
+            size: 22
+          })
+        );
+      }
+      if (lblSave) {
+        lblSave.textContent = added ? 'Guardado' : 'Guardar';
+      }
+    };
+
     const triggerSwipeLeft = () => {
       if (cardEl.classList.contains('is-swiping-left') || cardEl.classList.contains('is-swiping-right')) return;
       cardEl.classList.add('is-swiping-left');
@@ -1481,15 +1516,12 @@ export function renderCrucesView({
     });
     btnSkip.appendChild(svgIcon(['M18 6L6 18', 'M6 6l12 12'], { strokeWidth: 2.8 }));
 
-    const btnSave = el('button', {
+    btnSave = el('button', {
       type: 'button',
       className: isSaved ? 'deck-btn deck-btn--save is-saved' : 'deck-btn deck-btn--save',
       'aria-label': isSaved ? 'Quitar de guardados' : 'Guardar en favoritos para ver después',
-      title: isSaved ? 'Quitar de guardados' : 'Guardar para después',
-      onClick: () => {
-        const added = store.toggleSavedProfile(current.id);
-        onToast(added ? `${current.nombre} guardado en tus favoritos.` : `${current.nombre} quitado de favoritos.`);
-      }
+      title: isSaved ? 'Quitar de guardados (flecha abajo)' : 'Guardar para después (flecha abajo)',
+      onClick: triggerSave
     });
     btnSave.appendChild(
       svgIcon(['M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z'], {
@@ -1508,12 +1540,14 @@ export function renderCrucesView({
     });
     btnConnect.appendChild(svgIcon(['M20 6L9 17l-5-5'], { strokeWidth: 3 }));
 
+    lblSave = el('span', { className: 'deck-action-label', text: isSaved ? 'Guardado' : 'Guardar' });
+
     stage.appendChild(
       el('div', { className: 'deck-actions' }, [
         el('div', { className: 'deck-action-item' }, [btnSkip, el('span', { className: 'deck-action-label', text: 'Saltar' })]),
         el('div', { className: 'deck-action-item' }, [
           btnSave,
-          el('span', { className: 'deck-action-label', text: isSaved ? 'Guardado' : 'Guardar' })
+          lblSave
         ]),
         el('div', { className: 'deck-action-item' }, [btnConnect, el('span', { className: 'deck-action-label', text: 'Conectar' })])
       ])
@@ -1576,6 +1610,9 @@ export function renderCrucesView({
       } else if (e.key === 'ArrowRight' && !isConnected) {
         window.removeEventListener('keydown', onKeyDown);
         triggerSwipeRight();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        triggerSave();
       }
     };
     window.addEventListener('keydown', onKeyDown);
