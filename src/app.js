@@ -376,7 +376,7 @@ async function bootstrap() {
     const visibleNav = (modelo.navegacion || []).filter((item) => item.id !== 'cruces' || crucesUnlocked);
     const isCrucesRoute = uiState.route === 'cruces' && crucesUnlocked;
 
-    let conectaStrip = null;
+    let conectaControls = null;
     if (isCrucesRoute) {
       const {
         deckItems,
@@ -449,18 +449,18 @@ async function bootstrap() {
         title: 'Progreso de recorrido de fichas'
       });
 
-      conectaStrip = el('div', { className: 'topbar-conecta-strip' }, [
-        el('div', { className: 'container topbar-conecta-inner' }, [
-          el('div', { className: 'topbar-conecta-group' }, [macroSelect, savedBtn]),
-          el('div', { className: 'topbar-conecta-group' }, [prevBtn, counterBadge])
-        ])
+      conectaControls = el('div', { className: 'topbar-conecta-controls' }, [
+        el('div', { className: 'topbar-conecta-group' }, [macroSelect, savedBtn]),
+        el('div', { className: 'topbar-conecta-group' }, [prevBtn, counterBadge])
       ]);
     }
 
     renderInto(
       headerNode,
-      [
-        el('div', { className: 'container topbar__inner' }, [
+      el(
+        'div',
+        { className: 'container topbar__inner' },
+        [
           el(
             'a',
             {
@@ -481,6 +481,7 @@ async function bootstrap() {
               ])
             ]
           ),
+          conectaControls,
           el('div', { className: 'topbar__right' }, [
             el(
               'nav',
@@ -495,9 +496,8 @@ async function bootstrap() {
               )
             )
           ])
-        ]),
-        conectaStrip
-      ].filter(Boolean)
+        ].filter(Boolean)
+      )
     );
   }
 
