@@ -1452,6 +1452,18 @@ export function renderCrucesView({
       ])
     ]);
 
+    const triggerSwipeLeft = () => {
+      if (cardEl.classList.contains('is-swiping-left') || cardEl.classList.contains('is-swiping-right')) return;
+      cardEl.classList.add('is-swiping-left');
+      cardEl.addEventListener('animationend', () => advanceDeck(), { once: true });
+    };
+
+    const triggerSwipeRight = () => {
+      if (cardEl.classList.contains('is-swiping-right') || cardEl.classList.contains('is-swiping-left') || isConnected) return;
+      cardEl.classList.add('is-swiping-right');
+      cardEl.addEventListener('animationend', () => setUiState({ deckConnectedId: current.id }), { once: true });
+    };
+
     attachHorizontalSwipe(cardEl, {
       onSwipeLeft: advanceDeck,
       onSwipeRight: () => setUiState({ deckConnectedId: current.id }),
@@ -1465,11 +1477,7 @@ export function renderCrucesView({
       className: 'deck-btn deck-btn--skip',
       'aria-label': 'Pasar al siguiente colega',
       title: 'Pasar al siguiente (flecha izquierda)',
-      onClick: () => {
-        if (cardEl.classList.contains('is-swiping-left')) return;
-        cardEl.classList.add('is-swiping-left');
-        cardEl.addEventListener('animationend', () => advanceDeck(), { once: true });
-      }
+      onClick: triggerSwipeLeft
     });
     btnSkip.appendChild(svgIcon(['M18 6L6 18', 'M6 6l12 12'], { strokeWidth: 2.8 }));
 
@@ -1496,11 +1504,7 @@ export function renderCrucesView({
       className: isConnected ? 'deck-btn deck-btn--connect is-active' : 'deck-btn deck-btn--connect',
       'aria-label': 'Conectar por Teams',
       title: 'Conectar con este colega (flecha derecha)',
-      onClick: () => {
-        if (cardEl.classList.contains('is-swiping-right')) return;
-        cardEl.classList.add('is-swiping-right');
-        cardEl.addEventListener('animationend', () => setUiState({ deckConnectedId: current.id }), { once: true });
-      }
+      onClick: triggerSwipeRight
     });
     btnConnect.appendChild(svgIcon(['M20 6L9 17l-5-5'], { strokeWidth: 3 }));
 
@@ -1568,10 +1572,10 @@ export function renderCrucesView({
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
       if (e.key === 'ArrowLeft') {
         window.removeEventListener('keydown', onKeyDown);
-        advanceDeck();
+        triggerSwipeLeft();
       } else if (e.key === 'ArrowRight' && !isConnected) {
         window.removeEventListener('keydown', onKeyDown);
-        setUiState({ deckConnectedId: current.id });
+        triggerSwipeRight();
       }
     };
     window.addEventListener('keydown', onKeyDown);
