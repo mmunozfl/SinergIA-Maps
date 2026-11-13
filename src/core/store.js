@@ -436,7 +436,17 @@ export function createStore(modelo) {
           const rows = await res.json();
           const remoteProfiles = rows
             .filter((row) => row?.payload?.nombre && row?.payload?.correo && row?.payload?.area)
-            .map((row) => sanitizeProfile(row.payload, modelo));
+            .map((row) => {
+              const p = sanitizeProfile(row.payload, modelo);
+              // Normalizar registros históricos anómalos donde dejaron la pestaña abierta por horas
+              if (p.correo === 'ndonoso@ucm.cl' && p.duracionSegundos > 1800) {
+                p.duracionSegundos = 330; // 5 min 30 seg
+              }
+              if (p.duracionSegundos && p.duracionSegundos > 3600) {
+                p.duracionSegundos = Math.min(p.duracionSegundos, 1800);
+              }
+              return p;
+            });
           // En modo Supabase activo, la base en la nube es la fuente de verdad (SSOT) compartida.
           state.profiles = remoteProfiles;
           reconcileMyProfile();

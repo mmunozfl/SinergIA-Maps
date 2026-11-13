@@ -78,7 +78,7 @@ async function bootstrap() {
     editingProfileId: null,
     interviewStep: 0,
     interviewDraft: null,
-    interviewStartedAt: Date.now(),
+    interviewStartedAt: null,
     interviewCompletedProfileId: null,
     newlyJoinedProfileId: null,
     deckIndex: 0,

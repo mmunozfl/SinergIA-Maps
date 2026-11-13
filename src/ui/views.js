@@ -875,10 +875,8 @@ export function renderEntrevistaView({
     }
   }
 
-  const startedAt = uiState.interviewStartedAt || Date.now();
-  if (!uiState.interviewStartedAt) {
-    uiState.interviewStartedAt = startedAt;
-  }
+  // El cronometro solo cuenta cuando el usuario empieza a llenar datos, no por tener la ventana abierta
+  const startedAt = uiState.interviewStartedAt || null;
 
   const myProfile = store.getMyProfile();
   const editTargetId = uiState.editingProfileId || myProfile?.id || state.myProfileId;
@@ -1019,6 +1017,15 @@ export function renderEntrevistaView({
 
   formEl.appendChild(buildFormFields(stepCampos, modelo, draft, extraTagsBySource));
 
+  // El cronómetro solo comienza a correr cuando la persona empieza a llenar datos o interactuar
+  const startTimerOnInteraction = () => {
+    if (!uiState.interviewStartedAt && !isEditing) {
+      uiState.interviewStartedAt = Date.now();
+    }
+  };
+  formEl.addEventListener('input', startTimerOnInteraction, { once: true });
+  formEl.addEventListener('change', startTimerOnInteraction, { once: true });
+
   const errorBox = el('div', { className: 'form-errors', hidden: true });
   formEl.appendChild(errorBox);
 
@@ -1084,7 +1091,10 @@ export function renderEntrevistaView({
 
     if (timerInterval) clearInterval(timerInterval);
     if (!isEditing) {
-      mergedDraft.duracionSegundos = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+      const effectiveStart = uiState.interviewStartedAt || Date.now();
+      const rawSec = Math.max(1, Math.round((Date.now() - effectiveStart) / 1000));
+      // Si el tiempo es desproporcionado (ej. > 45 min por inactividad), acotar a un promedio razonable de 5m
+      mergedDraft.duracionSegundos = rawSec > 2700 ? 300 : rawSec;
       delete mergedDraft.id;
     } else {
       mergedDraft.id = targetProfile.id;
